@@ -119,7 +119,7 @@
               type="success"
               link
               size="small"
-              @click="downloadReport(row)"
+              @click="handleDownloadReport(row)"
               :disabled="row.status !== 'completed'"
             >
               下载报告
@@ -128,7 +128,7 @@
               type="warning"
               link
               size="small"
-              @click="retryTask(row)"
+              @click="handleRetryTask(row)"
               :disabled="row.status !== 'failed'"
             >
               重试
@@ -277,9 +277,10 @@ const viewResult = async (row) => {
 }
 
 // 下载报告
-const downloadReport = async (row) => {
+const handleDownloadReport = async (row) => {
   try {
-    const res = await downloadReport(row.id)
+    // 这里的 downloadReport 调用的就是第179行 import 进来的 API 接口
+    const res = await downloadReport(row.id) 
     const blob = new Blob([res], { type: 'application/pdf' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -295,9 +296,10 @@ const downloadReport = async (row) => {
 }
 
 // 重试任务
-const retryTask = async (row) => {
+const handleRetryTask = async (row) => {
   try {
-    await retryTask(row.id)
+    // 这里调用的 retryTask 是从 api/task.js 导入的接口函数
+    await retryTask(row.id) 
     ElMessage.success('任务已重新提交')
     loadTaskList()
   } catch (error) {

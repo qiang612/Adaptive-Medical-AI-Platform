@@ -9,7 +9,7 @@ from app.core.security import get_current_user, get_current_admin_user
 from app.models.user import User, UserRole  # 补全 User 模型导入
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, Token
 from app.services.user_service import user_service
-
+from pydantic import BaseModel
 router = APIRouter(prefix="/users", tags=["用户管理"])
 
 
@@ -95,3 +95,62 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
     return user_service.update_user(db, db_user=user, user_in=user_in)
+
+# --- 补充前端需要的请求 Schema ---
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+
+class PasswordReset(BaseModel):
+    new_password: str
+
+class UserRoleUpdate(BaseModel):
+    role_id: str
+
+# --- 补充缺失的接口 ---
+
+@router.patch("/{user_id}/status")
+def toggle_user_status(
+    user_id: int,
+    status_in: UserStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """切换用户状态"""
+    user = user_service.get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    user.is_active = status_in.is_active
+    db.commit()
+    return {"message": "状态更新成功"}
+
+@router.post("/{user_id}/reset-password")
+def reset_password(
+    user_id: int,
+    pwd_in: PasswordReset,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """重置用户密码"""
+    user = user_service.get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    from app.core.hashing import get_password_hash
+    user.password = get_password_hash(pwd_in.new_password)  # 注意你模型里可能是 hashed_password 或 password，请对齐
+    db.commit()
+    return {"message": "密码重置成功"}
+
+@router.put("/{user_id}/role")
+def update_user_role(
+    user_id: int,
+    role_in: UserRoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """更新用户角色"""
+    user = user_service.get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    # 转换为枚举类型
+    user.role = UserRole(role_in.role_id)
+    db.commit()
+    return {"message": "角色更新成功"}

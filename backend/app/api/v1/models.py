@@ -70,3 +70,15 @@ def delete_model(
         raise HTTPException(status_code=404, detail="模型不存在")
     model_service.delete_model(db, model_id=model_id)
     return {"message": "模型已删除"}
+
+@router.get("/active", response_model=ModelResponse)
+def get_active_model(
+    model_id: int,  # 接收前端传的 params: { model_id: ... }
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """获取指定的活跃模型信息（解决前端 422 报错）"""
+    model = model_service.get_model_by_id(db, model_id=model_id)
+    if not model or not getattr(model, 'is_active', True):
+        raise HTTPException(status_code=404, detail="模型未找到或未激活")
+    return model

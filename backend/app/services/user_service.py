@@ -16,7 +16,7 @@ class UserService:
     def create_user(self, db: Session, user_in: UserCreate):
         db_user = User(
             username=user_in.username,
-            hashed_password=get_password_hash(user_in.password),
+            password=get_password_hash(user_in.password),
             full_name=user_in.full_name,
             email=user_in.email,
             phone=user_in.phone,
@@ -40,7 +40,7 @@ class UserService:
         user = self.get_user_by_username(db, username=username)
         if not user:
             return None
-        if not verify_password(password, user.hashed_password):
+        if not verify_password(password, user.password):
             return None
         return user
 
