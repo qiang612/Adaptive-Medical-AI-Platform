@@ -1,0 +1,100 @@
+/* 全局配色规范 - 医疗专业主题 */
+:root {
+  --primary-color: #165DFF;
+  --primary-light: #4080FF;
+  --primary-dark: #0E42D2;
+  --success-color: #00B42A;
+  --warning-color: #FF7D00;
+  --danger-color: #F53F3F;
+  --info-color: #86909C;
+  --text-primary: #1D2129;
+  --text-regular: #4E5969;
+  --text-secondary: #86909C;
+  --text-placeholder: #C9CDD4;
+  --border-base: #E5E6EB;
+  --border-light: #F2F3F5;
+  --bg-page: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F2F3F5;
+}
+
+/* 全局通用样式 */
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+.mt-30 { margin-top: 30px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-20 { margin-bottom: 20px; }
+.mb-30 { margin-bottom: 30px; }
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center { display: flex; justify-content: center; align-items: center; }
+.flex-end { display: flex; justify-content: flex-end; align-items: center; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+/* 卡片通用样式 */
+.common-card {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: 20px;
+}
+
+.common-card .el-card__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.common-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.common-card .card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 表格通用样式 */
+.common-table {
+  margin-top: 10px;
+}
+
+.common-table .el-table {
+  --el-table-header-text-color: var(--text-regular);
+  --el-table-header-bg-color: var(--bg-hover);
+  --el-table-border-color: var(--border-light);
+}
+
+/* 表单通用样式 */
+.common-form .el-form-item__label {
+  font-weight: 500;
+  color: var(--text-regular);
+}
+
+/* 统计数字卡片 */
+.stat-card {
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card .stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin: 10px 0;
+}
+
+.stat-card .stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.stat-card .stat-trend {
+  font-size: 12px;
+  margin-top: 5px;
+}
