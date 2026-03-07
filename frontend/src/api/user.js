@@ -31,7 +31,7 @@ export function login(arg1, arg2) {
   formData.append('username', username);
   formData.append('password', password);
 
-  return request.post('/v1/users/login', formData, {
+  return request.post('/users/login', formData, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
     }
@@ -51,7 +51,7 @@ export function login(arg1, arg2) {
  * @returns {Promise} 用户信息
  */
 export function getCurrentUser() {
-  return request.get('/v1/users/me')
+  return request.get('/users/me')
     .catch(error => {
       console.error('获取用户信息失败:', error)
       const errMsg = error.response?.status === 401 
@@ -69,7 +69,7 @@ export function getCurrentUser() {
 export function getUsers(params = {}) {
   // 默认参数兼容：避免后端 limit 不传导致的 422 错误
   const queryParams = { limit: 100, page: 1, ...params }
-  return request.get('/v1/users/', { params: queryParams })
+  return request.get('/users/', { params: queryParams })
     .catch(error => {
       console.error('获取用户列表失败:', error)
       throw new Error('获取用户列表失败')
@@ -89,7 +89,7 @@ export function createUser(data) {
     return Promise.reject(new Error(`创建用户失败：缺少必填字段 ${missingFields.join(', ')}`))
   }
   
-  return request.post('/v1/users/', data)
+  return request.post('/users/', data)
     .catch(error => {
       console.error('创建用户失败:', error)
       throw new Error(error.response?.data?.detail || '创建用户失败')
@@ -108,7 +108,7 @@ export function updateUser(id, data) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
   
-  return request.put(`/v1/users/${id}`, data)
+  return request.put(`/users/${id}`, data)
     .catch(error => {
       console.error('更新用户失败:', error)
       throw new Error(error.response?.data?.detail || '更新用户失败')
@@ -125,7 +125,7 @@ export function deleteUser(id) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
   
-  return request.delete(`/v1/users/${id}`)
+  return request.delete(`/users/${id}`)
     .catch(error => {
       console.error('删除用户失败:', error)
       throw new Error('删除用户失败')
@@ -148,7 +148,7 @@ export function resetUserPassword(id, data) {
     return Promise.reject(new Error('新密码不能为空'))
   }
   
-  return request.post(`/v1/users/${id}/reset-password`, data)
+  return request.post(`/users/${id}/reset-password`, data)
     .catch(error => {
       console.error('重置密码失败:', error)
       throw new Error('重置密码失败')
@@ -169,7 +169,7 @@ export function toggleUserStatus(id, is_active) {
   // 确保 is_active 是布尔值
   const status = typeof is_active === 'boolean' ? is_active : Boolean(is_active)
   
-  return request.patch(`/v1/users/${id}/status`, { is_active: status })
+  return request.patch(`/users/${id}/status`, { is_active: status })
     .catch(error => {
       console.error('切换用户状态失败:', error)
       throw new Error('切换用户状态失败')
@@ -181,7 +181,7 @@ export function toggleUserStatus(id, is_active) {
  * @returns {Promise} 角色列表
  */
 export function getRoles() {
-  return request.get('/v1/roles/')
+  return request.get('/roles/')
     .catch(error => {
       console.error('获取角色列表失败:', error)
       throw new Error('获取角色列表失败')
@@ -199,7 +199,7 @@ export function updateUserRole(id, roleId) {
     return Promise.reject(new Error('用户ID和角色ID不能为空'))
   }
   
-  return request.put(`/v1/users/${id}/role`, { role_id: roleId })
+  return request.put(`/users/${id}/role`, { role_id: roleId })
     .catch(error => {
       console.error('更新用户角色失败:', error)
       throw new Error('更新用户角色失败')
@@ -218,7 +218,7 @@ export function getModels(params = {}) {
     page: 1, 
     ...params 
   }
-  return request.get('/v1/models/', { params: queryParams })
+  return request.get('/models/', { params: queryParams })
     .catch(error => {
       console.error('获取模型列表失败:', error)
       throw new Error('获取模型列表失败')
@@ -237,7 +237,7 @@ export function getActiveModel(modelId) {
   }
   
   // 核心修复：传递 model_id 参数，解决 422 错误
-  return request.get('/v1/models/active', {
+  return request.get('/models/active', {
     params: { model_id: modelId } // 补充后端要求的必填参数
   }).catch(error => {
     console.error('获取活跃模型失败:', error)

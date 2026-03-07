@@ -27,8 +27,8 @@
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.isActive" placeholder="全部" clearable style="width: 160px" @change="loadModelList">
-          <el-option label="启用" :value="true" />
-          <el-option label="禁用" :value="false" />
+          <el-option label="启用" :label="true" />
+          <el-option label="禁用" :label="false" />
         </el-select>
       </el-form-item>
     </SearchBar>

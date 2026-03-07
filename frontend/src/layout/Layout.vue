@@ -35,7 +35,7 @@
             <template #title>统计分析</template>
           </el-menu-item>
           <el-menu-item index="/model-compare">
-            <el-icon><Scale /></el-icon>
+            <el-icon><Operation /></el-icon>
             <template #title>模型对比</template>
           </el-menu-item>
           <el-menu-item index="/teaching">

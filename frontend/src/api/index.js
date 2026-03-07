@@ -11,7 +11,7 @@ const CookieUtil = {
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json;charset=utf-8'
