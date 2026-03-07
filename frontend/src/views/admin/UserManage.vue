@@ -82,7 +82,7 @@
               v-model="row.is_active"
               :active-value="true"
               :inactive-value="false"
-              @change="toggleUserStatus(row)"
+              @change="handleToggleUserStatus(row)"
             />
           </template>
         </el-table-column>
@@ -105,7 +105,7 @@
             </el-button>
             <el-popconfirm
               title="确定要删除这个用户吗？"
-              @confirm="deleteUser(row)"
+              @confirm="handleDeleteUser(row)"
             >
               <template #reference>
                 <el-button type="danger" link size="small">删除</el-button>
@@ -465,7 +465,7 @@ const saveUser = async () => {
 }
 
 // 切换用户状态
-const toggleUserStatus = async (row) => {
+const handleToggleUserStatus = async (row) => {
   try {
     await toggleUserStatus(row.id, row.is_active)
     ElMessage.success(`已${row.is_active ? '启用' : '禁用'}用户`)
@@ -500,7 +500,7 @@ const confirmResetPassword = async () => {
 }
 
 // 删除用户
-const deleteUser = async (row) => {
+const handleDeleteUser = async (row) => {
   try {
     await deleteUser(row.id)
     ElMessage.success('删除成功')

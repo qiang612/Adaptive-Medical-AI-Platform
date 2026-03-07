@@ -34,3 +34,13 @@ export function updateNoticeTemplate(id, data) {
 export function testEmailNotice(data) {
   return request.post('/system/test-email', data)
 }
+
+// 新增通知模板
+export function createNoticeTemplate(data) {
+  return request.post('/system/notice-templates', data)
+}
+
+// 删除通知模板
+export function deleteNoticeTemplate(id) {
+  return request.delete(`/system/notice-templates/${id}`)
+}

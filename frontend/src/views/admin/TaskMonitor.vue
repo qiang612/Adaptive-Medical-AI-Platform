@@ -236,7 +236,7 @@
                   type="danger"
                   link
                   size="small"
-                  @click="terminateTask(row)"
+                  @click="handleTerminateTask(row)"
                 >
                   终止
                 </el-button>
@@ -293,7 +293,7 @@
         <el-button
           v-if="currentTask?.status === 'failed'"
           type="warning"
-          @click="retryTask(currentTask)"
+          @click="handleRetryTask(currentTask)"
         >
           重试任务
         </el-button>
@@ -308,7 +308,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import Pagination from '@/components/Pagination.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import { getQueueStats, getWorkerList, getTaskList, getTaskDetail, retryTask, terminateTask } from '@/api/monitor'
+import { 
+  getTaskQueueStats as getQueueStats, 
+  getWorkerNodes as getWorkerList, 
+  getAllTasks as getTaskList, 
+  getTaskDetail, 
+  retryTask, 
+  terminateTask 
+} from '@/api/task'
 import { getActiveModels } from '@/api/model'
 
 const loading = ref(false)
@@ -426,7 +433,7 @@ const viewTaskDetail = async (row) => {
 }
 
 // 重试任务
-const retryTask = async (row) => {
+const handleRetryTask = async (row) => {
   ElMessageBox.confirm(`确定要重试任务"${row.task_id?.slice(0, 16)}..."吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
@@ -445,7 +452,7 @@ const retryTask = async (row) => {
 }
 
 // 终止任务
-const terminateTask = async (row) => {
+const handleTerminateTask = async (row) => {
   ElMessageBox.confirm(`确定要终止任务"${row.task_id?.slice(0, 16)}..."吗？此操作不可恢复！`, '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

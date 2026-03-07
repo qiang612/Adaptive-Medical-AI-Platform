@@ -59,7 +59,7 @@
               v-model="row.is_active"
               :active-value="true"
               :inactive-value="false"
-              @change="toggleModelStatus(row)"
+              @change="handleToggleModelStatus(row)"
             />
           </template>
         </el-table-column>
@@ -69,7 +69,7 @@
             <el-button type="primary" link size="small" @click="viewModelDetail(row)">详情</el-button>
             <el-button type="primary" link size="small" @click="openModelDialog(row)">编辑</el-button>
             <el-button type="warning" link size="small" @click="openVersionDialog(row)">版本</el-button>
-            <el-button type="danger" link size="small" @click="deleteModel(row)">删除</el-button>
+            <el-button type="danger" link size="small" @click="handleDeleteModel(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -391,18 +391,20 @@ const saveModel = async () => {
 }
 
 // 切换模型状态
-const toggleModelStatus = async (row) => {
+const handleToggleModelStatus = async (row) => {
   try {
-    await toggleModelStatus(row.id, row.is_active)
-    ElMessage.success(`已${row.is_active ? '启用' : '禁用'}模型`)
+    // 这里的 toggleModelStatus 是从 api 导入的接口函数
+    await toggleModelStatus(row.id, row.is_active) 
+    ElMessage.success(`${row.is_active ? '启用' : '禁用'}成功`)
   } catch (error) {
-    row.is_active = !row.is_active
+    row.is_active = !row.is_active // 失败时回退状态
     console.error('切换状态失败', error)
+    ElMessage.error('切换状态失败')
   }
 }
 
 // 删除模型
-const deleteModel = (row) => {
+const handleDeleteModel = (row) => {
   ElMessageBox.confirm(`确定要删除模型"${row.model_name}"吗？删除后不可恢复！`, '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

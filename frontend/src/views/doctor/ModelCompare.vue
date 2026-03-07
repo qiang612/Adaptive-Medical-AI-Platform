@@ -100,7 +100,7 @@
             <div class="card-header">
               <span class="card-title">诊断对比结果</span>
               <template v-if="compareResults.length > 0">
-                <el-button type="primary" size="small" @click="exportCompareReport">
+                <el-button type="primary" size="small" @click="handleExportCompareReport">
                   <el-icon><Download /></el-icon>
                   导出对比报告
                 </el-button>
@@ -478,7 +478,7 @@ const viewModelDetail = (result) => {
 }
 
 // 导出对比报告
-const exportCompareReport = async () => {
+const handleExportCompareReport = async () => {
   try {
     const res = await exportCompareReport({ results: compareResults.value })
     const blob = new Blob([res], { type: 'application/pdf' })

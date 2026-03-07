@@ -86,7 +86,7 @@
             </el-button>
             <el-popconfirm
               title="确定要删除这个患者档案吗？删除后相关诊断记录将保留但不再关联此患者。"
-              @confirm="deletePatient(row)"
+              @confirm="handleDeletePatient(row)"
             >
               <template #reference>
                 <el-button type="danger" link size="small">删除</el-button>
@@ -339,7 +339,7 @@ const savePatient = async () => {
 }
 
 // 删除患者
-const deletePatient = async (row) => {
+const handleDeletePatient = async (row) => {
   try {
     await deletePatient(row.id)
     ElMessage.success('删除成功')

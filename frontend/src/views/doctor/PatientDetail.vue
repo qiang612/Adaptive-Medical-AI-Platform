@@ -109,7 +109,7 @@
               <el-icon><Plus /></el-icon>
               新建诊断
             </el-button>
-            <el-button type="success" style="width: 100%; margin-bottom: 10px" @click="exportPatientData">
+            <el-button type="success" style="width: 100%; margin-bottom: 10px" @click="handleExportPatientData">
               <el-icon><Download /></el-icon>
               导出患者数据
             </el-button>
@@ -433,7 +433,7 @@ const startNewDiagnosis = () => {
 }
 
 // 导出患者数据
-const exportPatientData = async () => {
+const handleExportPatientData = async () => {
   try {
     const res = await exportPatientData(patientId.value)
     const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
