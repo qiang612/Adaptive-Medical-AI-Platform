@@ -13,8 +13,7 @@
       </template>
     </PageHeader>
 
-    <!-- 核心指标卡片 -->
-    <el-row :gutter="20" class="stat-row">
+    <el-row :gutter="20" class="stat-row" v-loading="loading">
       <el-col :span="6">
         <div class="stat-card primary">
           <div class="stat-icon">
@@ -76,11 +75,9 @@
       </el-col>
     </el-row>
 
-    <!-- 图表区域 -->
     <el-row :gutter="20" class="chart-row">
-      <!-- 诊断趋势图 -->
       <el-col :span="16">
-        <el-card class="common-card">
+        <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">诊断任务趋势</span>
           </template>
@@ -88,9 +85,8 @@
         </el-card>
       </el-col>
 
-      <!-- 病种分布 -->
       <el-col :span="8">
-        <el-card class="common-card">
+        <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">病种分布</span>
           </template>
@@ -100,9 +96,8 @@
     </el-row>
 
     <el-row :gutter="20" class="chart-row">
-      <!-- 模型调用排行 -->
       <el-col :span="8">
-        <el-card class="common-card">
+        <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">模型调用排行</span>
           </template>
@@ -110,9 +105,8 @@
         </el-card>
       </el-col>
 
-      <!-- 用户活跃度 -->
       <el-col :span="8">
-        <el-card class="common-card">
+        <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">用户活跃度TOP10</span>
           </template>
@@ -120,9 +114,8 @@
         </el-card>
       </el-col>
 
-      <!-- 系统资源监控 -->
       <el-col :span="8">
-        <el-card class="common-card">
+        <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">系统资源监控</span>
           </template>
@@ -131,18 +124,21 @@
       </el-col>
     </el-row>
 
-    <!-- 实时数据表格 -->
     <el-row :gutter="20">
-      <!-- 最新任务 -->
       <el-col :span="12">
-        <el-card class="common-card">
+        <el-card class="common-card" shadow="hover">
           <template #header>
             <div class="card-header">
               <span class="card-title">最新任务</span>
               <el-button type="primary" link size="small" @click="$router.push('/admin/tasks')">查看全部</el-button>
             </div>
           </template>
-          <el-table :data="latestTasks" border class="common-table" size="small" max-height="300">
+          
+          <el-skeleton :rows="5" animated v-if="loading" />
+          
+          <el-empty description="暂无推理任务" :image-size="80" v-else-if="latestTasks.length === 0" />
+          
+          <el-table v-else :data="latestTasks" border stripe class="common-table" size="small" max-height="300">
             <el-table-column prop="task_id" label="任务ID" width="120" show-overflow-tooltip />
             <el-table-column prop="model_name" label="模型" width="120" />
             <el-table-column prop="status" label="状态" width="80">
@@ -155,16 +151,20 @@
         </el-card>
       </el-col>
 
-      <!-- 最新用户 -->
       <el-col :span="12">
-        <el-card class="common-card">
+        <el-card class="common-card" shadow="hover">
           <template #header>
             <div class="card-header">
               <span class="card-title">最新注册用户</span>
               <el-button type="primary" link size="small" @click="$router.push('/admin/users')">查看全部</el-button>
             </div>
           </template>
-          <el-table :data="latestUsers" border class="common-table" size="small" max-height="300">
+
+          <el-skeleton :rows="5" animated v-if="loading" />
+
+          <el-empty description="暂无新注册用户" :image-size="80" v-else-if="latestUsers.length === 0" />
+
+          <el-table v-else :data="latestUsers" border stripe class="common-table" size="small" max-height="300">
             <el-table-column prop="username" label="用户名" width="100" />
             <el-table-column prop="full_name" label="姓名" width="100" />
             <el-table-column prop="role" label="角色" width="80">
@@ -221,6 +221,7 @@ use([
 ])
 
 const timeRange = ref('today')
+const loading = ref(true) // 引入 loading 状态变量
 const stats = ref({})
 const latestTasks = ref([])
 const latestUsers = ref([])
@@ -455,6 +456,7 @@ const resourceOption = ref({
 
 // 加载所有数据
 const loadAllData = async () => {
+  loading.value = true // 数据请求前开启 loading
   try {
     // 加载平台基础统计
     const platformRes = await getPlatformStats({ time_range: timeRange.value })
@@ -498,6 +500,8 @@ const loadAllData = async () => {
 
   } catch (error) {
     console.error('加载看板数据失败', error)
+  } finally {
+    loading.value = false // 数据请求结束后关闭 loading
   }
 }
 

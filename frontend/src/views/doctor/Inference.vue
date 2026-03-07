@@ -2,7 +2,7 @@
   <div class="inference-page">
     <PageHeader
       title="AI辅助诊断"
-      description="选择诊断模型，输入患者信息，提交AI智能诊断"
+      description="基于异步架构的多模态医疗智能推理平台"
     >
       <template #extra>
         <el-button @click="handleSaveDraft">
@@ -16,58 +16,13 @@
       </template>
     </PageHeader>
 
-    <el-row :gutter="20">
-      <el-col :span="16">
-        <!-- 基础信息卡片 -->
-        <el-card class="common-card">
+    <el-row :gutter="20" class="inference-container">
+      <el-col :span="16" class="left-column">
+        <el-card class="common-card patient-card" shadow="never">
           <template #header>
             <span class="card-title">患者基础信息</span>
           </template>
-          <el-form :model="taskForm" label-width="100px" class="common-form">
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="选择模型" required>
-                  <el-select
-                    v-model="taskForm.modelId"
-                    placeholder="请选择AI诊断模型"
-                    style="width: 100%"
-                    @change="onModelChange"
-                    clearable
-                  >
-                    <el-option-group
-                      v-for="group in modelGroup"
-                      :key="group.type"
-                      :label="group.label"
-                    >
-                      <el-option
-                        v-for="model in group.models"
-                        :key="model.id"
-                        :label="model.model_name"
-                        :value="model.id"
-                        :description="`${model.model_type} | v${model.model_version}`"
-                      />
-                    </el-option-group>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="常用模型">
-                  <el-space wrap>
-                    <el-tag
-                      v-for="model in favoriteModels"
-                      :key="model.id"
-                      type="info"
-                      effect="light"
-                      closable
-                      @click="taskForm.modelId = model.id; onModelChange(model.id)"
-                      @close="removeFavorite(model.id)"
-                    >
-                      {{ model.model_name }}
-                    </el-tag>
-                  </el-space>
-                </el-form-item>
-              </el-col>
-            </el-row>
+          <el-form :model="taskForm" label-position="top" class="common-form" size="default">
             <el-row :gutter="20">
               <el-col :span="8">
                 <el-form-item label="患者姓名">
@@ -91,7 +46,7 @@
             <el-row :gutter="20">
               <el-col :span="8">
                 <el-form-item label="年龄">
-                  <el-input-number v-model="taskForm.age" :min="0" :max="150" style="width: 100%" />
+                  <el-input-number v-model="taskForm.age" :min="0" :max="150" style="width: 100%" controls-position="right" />
                 </el-form-item>
               </el-col>
               <el-col :span="8">
@@ -113,119 +68,192 @@
           </el-form>
         </el-card>
 
-        <!-- 动态表单区域 -->
-        <el-card v-if="selectedModel" class="common-card">
+        <el-card class="common-card visual-card" shadow="never">
           <template #header>
-            <span class="card-title">模型输入参数</span>
-            <el-tag :type="selectedModel.model_type === '单模态' ? 'primary' : 'success'">
-              {{ selectedModel.model_type }}
+            <div class="card-header">
+              <span class="card-title">医学影像与数据上传</span>
+              <span class="upload-tip">支持 JPG / PNG / DICOM 影像及 Excel 数据表</span>
+            </div>
+          </template>
+          
+          <div class="canvas-container" v-loading="imageLoading">
+            <el-upload
+              v-show="!currentImage"
+              class="upload-area"
+              drag
+              multiple
+              action="#"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :file-list="fileList"
+              accept=".jpg,.jpeg,.png,.dcm,.xlsx,.xls"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">将文件拖到此处，或 <em>点击上传</em></div>
+              <template #tip>
+                <div class="el-upload__tip text-center">单个文件大小不超过 50MB</div>
+              </template>
+            </el-upload>
+
+            <div v-show="currentImage" class="preview-area">
+              <img :src="currentImage" class="preview-image" alt="医学影像" />
+              <canvas ref="resultCanvas" class="result-canvas"></canvas>
+              
+              <div class="preview-actions">
+                <el-tooltip content="清除并重新上传" placement="left">
+                  <el-button type="danger" circle icon="Delete" @click="clearImage" />
+                </el-tooltip>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="currentImage && fileList.length > 1" class="extra-files">
+            <el-tag v-for="file in nonImageFiles" :key="file.uid" size="small" type="info" closable @close="handleFileRemove(file, fileList)">
+              {{ file.name }}
             </el-tag>
-          </template>
-          <DynamicForm v-model="taskForm.inputData" :schema="selectedModel.input_schema" />
+          </div>
         </el-card>
-
-        <!-- 文件上传区域 -->
-        <el-card class="common-card">
-          <template #header>
-            <span class="card-title">文件上传</span>
-            <span class="upload-tip">支持JPG/PNG/DICOM格式影像、Excel数据表格</span>
-          </template>
-          <el-upload
-            v-model:file-list="fileList"
-            multiple
-            :auto-upload="false"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :file-list="fileList"
-            accept=".jpg,.jpeg,.png,.dcm,.xlsx,.xls"
-          >
-            <el-button type="primary">选择文件</el-button>
-            <template #tip>
-              <div class="el-upload__tip">单个文件大小不超过50MB</div>
-            </template>
-          </el-upload>
-        </el-card>
-
-        <!-- 提交按钮 -->
-        <div class="submit-section">
-          <el-button type="primary" size="large" :loading="submitting" @click="handleSubmit">
-            <el-icon><VideoPlay /></el-icon>
-            提交诊断任务
-          </el-button>
-          <el-button size="large" @click="goToTaskList">
-            查看我的任务列表
-          </el-button>
-        </div>
       </el-col>
 
-      <el-col :span="8">
-        <!-- 模型说明卡片 -->
-        <el-card v-if="selectedModel" class="common-card model-info">
+      <el-col :span="8" class="right-column">
+        <el-card class="common-card" shadow="never">
           <template #header>
-            <span class="card-title">模型说明</span>
-            <el-button
-              :type="isFavorite ? 'warning' : 'primary'"
-              :icon="isFavorite ? 'StarFilled' : 'Star'"
-              size="small"
-              text
-              @click="toggleFavorite"
+            <span class="card-title">AI诊断模型选择</span>
+          </template>
+          
+          <el-select
+            v-model="taskForm.modelId"
+            placeholder="请选择AI诊断模型"
+            style="width: 100%; margin-bottom: 16px;"
+            @change="onModelChange"
+            clearable
+            size="large"
+          >
+            <el-option-group
+              v-for="group in modelGroup"
+              :key="group.type"
+              :label="group.label"
             >
-              {{ isFavorite ? '取消收藏' : '收藏模型' }}
-            </el-button>
-          </template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="模型名称">{{ selectedModel.model_name }}</el-descriptions-item>
-            <el-descriptions-item label="模型编码">{{ selectedModel.model_code }}</el-descriptions-item>
-            <el-descriptions-item label="模型类型">{{ selectedModel.model_type }}</el-descriptions-item>
-            <el-descriptions-item label="版本号">{{ selectedModel.model_version }}</el-descriptions-item>
-            <el-descriptions-item label="准确率">{{ selectedModel.accuracy || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="AUC值">{{ selectedModel.auc || '-' }}</el-descriptions-item>
-          </el-descriptions>
-          <el-divider content-position="left">模型描述</el-divider>
-          <p class="model-desc">{{ selectedModel.description || '暂无描述' }}</p>
+              <el-option
+                v-for="model in group.models"
+                :key="model.id"
+                :label="model.model_name"
+                :value="model.id"
+              >
+                <span style="float: left">{{ model.model_name }}</span>
+                <span style="float: right; color: var(--el-text-color-secondary); font-size: 12px">
+                  v{{ model.model_version }}
+                </span>
+              </el-option>
+            </el-option-group>
+          </el-select>
+
+          <div class="favorite-models" v-if="favoriteModels.length > 0">
+            <span class="label">常用:</span>
+            <el-space wrap>
+              <el-tag
+                v-for="model in favoriteModels"
+                :key="model.id"
+                type="info"
+                effect="plain"
+                closable
+                class="cursor-pointer"
+                @click="taskForm.modelId = model.id; onModelChange(model.id)"
+                @close="removeFavorite(model.id)"
+              >
+                {{ model.model_name }}
+              </el-tag>
+            </el-space>
+          </div>
         </el-card>
 
-        <!-- 诊断进度 -->
-        <el-card v-if="currentTaskId" class="common-card">
+        <el-card v-if="selectedModel" class="common-card model-config-card" shadow="never">
           <template #header>
-            <span class="card-title">诊断进度</span>
+            <div class="card-header">
+              <span class="card-title">配置与特征输入</span>
+              <div class="header-actions">
+                <el-tag :type="selectedModel.model_type === '单模态' ? 'primary' : 'success'" size="small">
+                  {{ selectedModel.model_type }}
+                </el-tag>
+                <el-button
+                  :type="isFavorite ? 'warning' : 'primary'"
+                  :icon="isFavorite ? 'StarFilled' : 'Star'"
+                  size="small"
+                  link
+                  @click="toggleFavorite"
+                >
+                  {{ isFavorite ? '取消' : '收藏' }}
+                </el-button>
+              </div>
+            </div>
           </template>
-          <el-steps :active="taskStep" direction="vertical">
-            <el-step title="任务提交" :description="taskStatus.created_at" />
-            <el-step title="排队中" :status="taskStatus.status === 'pending' ? 'processing' : 'finish'" />
-            <el-step title="AI推理中" :status="taskStatus.status === 'processing' ? 'processing' : taskStatus.status === 'completed' || taskStatus.status === 'failed' ? 'finish' : 'wait'" />
-            <el-step
-              title="诊断完成"
-              :status="taskStatus.status === 'completed' ? 'success' : taskStatus.status === 'failed' ? 'error' : 'wait'"
-              :description="taskStatus.status === 'failed' ? taskStatus.error_msg : ''"
-            />
-          </el-steps>
+          
+          <div class="model-desc-mini">
+            {{ selectedModel.description || '暂无描述' }}
+            <div class="metrics">
+              <span v-if="selectedModel.accuracy">准确率: {{ selectedModel.accuracy }}</span>
+              <span v-if="selectedModel.auc">AUC: {{ selectedModel.auc }}</span>
+            </div>
+          </div>
+
+          <el-divider border-style="dashed" />
+          
+          <div class="dynamic-schema">
+            <div class="section-title">临床特征录入</div>
+            <DynamicForm v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" v-model="taskForm.inputData" :schema="selectedModel.input_schema" />
+            <el-empty v-else description="当前为单模态模型，仅需影像数据" :image-size="60" />
+          </div>
         </el-card>
 
-        <!-- 历史诊断记录 -->
-        <el-card class="common-card">
+        <div class="submit-section">
+          <el-button 
+            type="primary" 
+            size="large" 
+            class="w-full submit-btn" 
+            :loading="submitting" 
+            :disabled="!taskForm.modelId || fileList.length === 0"
+            @click="handleSubmit"
+          >
+            <el-icon><VideoPlay /></el-icon>
+            提交异步推理任务
+          </el-button>
+          <div class="submit-tip">
+            <el-icon><InfoFilled /></el-icon> 任务将排队执行，可稍后在右上角通知或任务列表中查看。
+          </div>
+        </div>
+
+        <el-card class="common-card history-card" shadow="never">
           <template #header>
-            <span class="card-title">最近诊断记录</span>
+            <div class="card-header">
+              <span class="card-title">最近任务追踪</span>
+              <el-button type="primary" link size="small" @click="goToTaskList">查看全部</el-button>
+            </div>
           </template>
-          <el-timeline>
+          <el-timeline v-if="recentTasks.length > 0">
             <el-timeline-item
               v-for="item in recentTasks"
               :key="item.id"
-              :type="item.status === 'completed' ? 'primary' : item.status === 'failed' ? 'danger' : 'warning'"
+              :type="item.status === 'completed' ? 'success' : item.status === 'failed' ? 'danger' : 'warning'"
               :timestamp="item.created_at"
+              size="large"
             >
-              <p>{{ item.model_name }} - {{ item.patient_name || '匿名患者' }}</p>
-              <el-button type="primary" link size="small" @click="viewTaskDetail(item)">查看详情</el-button>
+              <div class="timeline-content">
+                <span class="task-model">{{ item.model_name }}</span>
+                <span class="task-patient">{{ item.patient_name || '匿名患者' }}</span>
+              </div>
+              <div class="timeline-status">
+                <span v-if="item.status === 'pending'" class="text-warning"><el-icon class="is-loading"><Loading /></el-icon> 排队中</span>
+                <span v-else-if="item.status === 'processing'" class="text-primary"><el-icon class="is-loading"><Loading /></el-icon> 推理中</span>
+                <span v-else-if="item.status === 'completed'" class="text-success cursor-pointer" @click="viewTaskDetail(item)">查看结果 -></span>
+                <span v-else class="text-danger">推理失败</span>
+              </div>
             </el-timeline-item>
           </el-timeline>
+          <el-empty v-else description="暂无近期任务" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
-
-    <!-- 诊断结果展示 -->
-    <el-dialog v-model="resultDialogVisible" title="诊断结果" width="900px" fullscreen>
-      <ResultVisual :result="taskResult" />
-    </el-dialog>
   </div>
 </template>
 
@@ -234,22 +262,22 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getActiveModels } from '@/api/model'
-import { createTask, getTaskStatus, getMyTasks } from '@/api/task'
+import { createTask, getMyTasks } from '@/api/task'
 import PageHeader from '@/components/PageHeader.vue'
 import DynamicForm from '@/components/DynamicForm.vue'
-import ResultVisual from '@/components/ResultVisual.vue'
 
 const router = useRouter()
 
+// 状态变量
 const models = ref([])
 const selectedModel = ref(null)
 const fileList = ref([])
 const submitting = ref(false)
-const currentTaskId = ref('')
-const taskStatus = ref({})
-const taskResult = ref(null)
-const resultDialogVisible = ref(false)
 const recentTasks = ref([])
+
+// 影像预览专用状态
+const imageLoading = ref(false)
+const currentImage = ref(null)
 
 // 表单数据
 const taskForm = reactive({
@@ -261,6 +289,11 @@ const taskForm = reactive({
   phone: '',
   checkDate: '',
   inputData: {}
+})
+
+// 计算非图片的附加文件（如Excel）
+const nonImageFiles = computed(() => {
+  return fileList.value.filter(f => !f.raw.type.startsWith('image/') && !f.name.endsWith('.dcm'))
 })
 
 // 模型分组
@@ -292,17 +325,6 @@ const isFavorite = computed(() => {
   return favorites.includes(selectedModel.value.id)
 })
 
-// 任务步骤
-const taskStep = computed(() => {
-  const statusMap = {
-    pending: 1,
-    processing: 2,
-    completed: 3,
-    failed: 3
-  }
-  return statusMap[taskStatus.value.status] || 0
-})
-
 // 加载模型列表
 const loadModels = async () => {
   try {
@@ -325,21 +347,36 @@ const loadRecentTasks = async () => {
 // 模型切换
 const onModelChange = (modelId) => {
   selectedModel.value = models.value.find(m => m.id === modelId)
-  taskResult.value = null
-  currentTaskId.value = ''
-  taskStatus.value = {}
 }
 
-// 文件处理
-const handleFileChange = (file) => {
-  if (!fileList.value.find(f => f.uid === file.uid)) {
-    fileList.value.push(file)
+// 文件处理与本地预览
+const handleFileChange = (uploadFile, uploadFiles) => {
+  fileList.value = uploadFiles
+  // 查找第一个图片文件进行大屏预览
+  const imageFile = uploadFiles.find(f => f.raw.type.startsWith('image/') || f.name.endsWith('.dcm'))
+  
+  if (imageFile && !currentImage.value) {
+    imageLoading.value = true
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      currentImage.value = e.target.result
+      imageLoading.value = false
+    }
+    reader.readAsDataURL(imageFile.raw)
   }
 }
 
-const handleFileRemove = (file) => {
-  const index = fileList.value.findIndex(f => f.uid === file.uid)
-  if (index > -1) fileList.value.splice(index, 1)
+const handleFileRemove = (file, uploadFiles) => {
+  fileList.value = uploadFiles
+  // 如果移除的是当前预览的图片，清空预览
+  if (uploadFiles.filter(f => f.raw.type.startsWith('image/') || f.name.endsWith('.dcm')).length === 0) {
+    currentImage.value = null
+  }
+}
+
+const clearImage = () => {
+  currentImage.value = null
+  fileList.value = nonImageFiles.value // 保留非图片文件
 }
 
 // 收藏切换
@@ -383,14 +420,12 @@ const resetForm = () => {
     }
   })
   fileList.value = []
+  currentImage.value = null
   selectedModel.value = null
-  taskResult.value = null
-  currentTaskId.value = ''
-  taskStatus.value = {}
   ElMessage.success('表单已重置')
 }
 
-// 提交诊断
+// 提交异步诊断（核心修改：提交即走，不阻塞等待）
 const handleSubmit = async () => {
   if (!taskForm.modelId) {
     ElMessage.warning('请选择AI诊断模型')
@@ -401,54 +436,43 @@ const handleSubmit = async () => {
   try {
     const formData = new FormData()
     formData.append('model_id', taskForm.modelId)
+    
+    // 附加基础信息
     Object.keys(taskForm).forEach(key => {
       if (taskForm[key] !== null && taskForm[key] !== '' && key !== 'inputData' && key !== 'modelId') {
         formData.append(key, taskForm[key])
       }
     })
+    
+    // 附加动态 Schema 数据
     if (Object.keys(taskForm.inputData).length) {
       formData.append('input_data', JSON.stringify(taskForm.inputData))
     }
+    
+    // 附加文件
     fileList.value.forEach(file => {
       if (file.raw) formData.append('files', file.raw)
     })
 
-    const task = await createTask(formData)
-    currentTaskId.value = task.task_id
-    ElMessage.success('任务提交成功，正在处理...')
+    // 提交任务到后端 Celery 队列
+    await createTask(formData)
+    
+    // 提交成功，刷新历史记录，无需等待结果返回
+    ElMessage.success('任务已成功提交至推理队列，请留意页面通知。')
+    loadRecentTasks()
 
-    // 轮询任务状态
-    const pollTask = setInterval(async () => {
-      const status = await getTaskStatus(task.task_id)
-      taskStatus.value = status
-      if (status.status === 'completed') {
-        clearInterval(pollTask)
-        taskResult.value = status.result
-        resultDialogVisible.value = true
-        ElMessage.success('诊断完成')
-        loadRecentTasks()
-      } else if (status.status === 'failed') {
-        clearInterval(pollTask)
-        ElMessage.error('诊断失败: ' + status.error_msg)
-      }
-    }, 2000)
-
+  } catch (error) {
+    ElMessage.error('任务提交失败')
   } finally {
     submitting.value = false
   }
 }
 
-// 查看任务详情
+// 跳转到任务列表查看结果
 const viewTaskDetail = (item) => {
-  if (item.status === 'completed') {
-    taskResult.value = item.result
-    resultDialogVisible.value = true
-  } else {
-    router.push('/tasks')
-  }
+  router.push(`/tasks?taskId=${item.id}`)
 }
 
-// 跳转到任务列表
 const goToTaskList = () => {
   router.push('/tasks')
 }
@@ -468,29 +492,106 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.inference-page {
-  width: 100%;
-}
+.inference-page { width: 100%; }
 
-.model-info .el-descriptions {
-  margin-top: 10px;
-}
-
-.model-desc {
-  line-height: 1.8;
-  color: var(--text-regular);
-  margin: 0;
-}
-
-.upload-tip {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.submit-section {
+.inference-container {
   display: flex;
-  gap: 20px;
-  justify-content: center;
-  padding: 30px 0;
+  align-items: stretch;
 }
+
+.left-column, .right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-tip { font-size: 12px; color: var(--text-secondary); }
+
+/* 影像预览区深度定制 */
+.visual-card { flex: 1; display: flex; flex-direction: column; }
+:deep(.visual-card .el-card__body) { flex: 1; display: flex; flex-direction: column; }
+
+.canvas-container {
+  flex: 1; 
+  min-height: 450px;
+  background: #1e1e1e; /* 医疗影像深色背景 */
+  border-radius: 8px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  position: relative; 
+  overflow: hidden;
+  border: 1px dashed var(--border-color);
+}
+
+.upload-area { width: 100%; padding: 0 40px; }
+:deep(.el-upload-dragger) { background: transparent; border: none; }
+:deep(.el-upload__text) { color: #888; }
+.text-center { text-align: center; }
+
+.preview-area { 
+  position: relative; width: 100%; height: 100%; 
+  display: flex; align-items: center; justify-content: center; 
+}
+.preview-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+.result-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+.preview-actions { position: absolute; top: 16px; right: 16px; z-index: 10; }
+.extra-files { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 右侧组件样式 */
+.favorite-models {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.favorite-models .label { padding-top: 4px; }
+.cursor-pointer { cursor: pointer; }
+
+.model-config-card { flex-shrink: 0; }
+.model-desc-mini {
+  font-size: 13px;
+  color: var(--text-regular);
+  line-height: 1.6;
+}
+.model-desc-mini .metrics { margin-top: 8px; display: flex; gap: 16px; color: var(--text-secondary); }
+
+.section-title { 
+  font-size: 14px; font-weight: bold; color: var(--text-primary); 
+  margin-bottom: 16px; padding-left: 8px; border-left: 4px solid var(--primary-color);
+}
+
+/* 提交按钮区域 */
+.w-full { width: 100%; }
+.submit-section { text-align: center; }
+.submit-btn { border-radius: 8px; font-size: 16px; font-weight: bold; }
+.submit-tip { 
+  margin-top: 10px; font-size: 12px; color: var(--text-secondary); 
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+
+/* 历史记录 */
+.history-card { flex: 1; overflow-y: auto; }
+.timeline-content { display: flex; flex-direction: column; gap: 4px; }
+.task-model { font-weight: bold; color: var(--text-primary); font-size: 14px; }
+.task-patient { font-size: 13px; color: var(--text-secondary); }
+.timeline-status { margin-top: 8px; font-size: 13px; }
+
+.text-warning { color: var(--el-color-warning); }
+.text-primary { color: var(--el-color-primary); }
+.text-success { color: var(--el-color-success); font-weight: bold; }
+.text-danger { color: var(--el-color-danger); }
 </style>
