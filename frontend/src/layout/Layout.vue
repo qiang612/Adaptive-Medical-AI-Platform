@@ -1,10 +1,9 @@
 <template>
   <el-container class="layout-container">
-    <!-- 侧边栏 -->
     <el-aside :width="isCollapse ? '64px' : '220px'" class="aside-container">
       <div class="logo">
-        <!-- <img v-if="isCollapse" src="/favicon.ico" alt="logo" class="logo-mini" /> -->
-        <span  class="logo-text">自适应AI辅助医疗平台</span>
+        <span v-if="!isCollapse" class="logo-text">自适应AI辅助医疗平台</span>
+        <span v-else class="logo-text">AI</span>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -16,7 +15,6 @@
         active-text-color="#ffffff"
         unique-opened
       >
-        <!-- 医生菜单 -->
         <template v-if="userStore.userInfo?.role === 'doctor'">
           <el-menu-item index="/inference">
             <el-icon><DataAnalysis /></el-icon>
@@ -44,7 +42,6 @@
           </el-menu-item>
         </template>
 
-        <!-- 管理员菜单 -->
         <template v-if="userStore.userInfo?.role === 'admin'">
           <el-menu-item index="/dashboard">
             <el-icon><Odometer /></el-icon>
@@ -74,7 +71,6 @@
       </el-menu>
     </el-aside>
 
-    <!-- 主内容区 -->
     <el-container class="main-container">
       <el-header class="header-container">
         <div class="header-left">
@@ -82,12 +78,26 @@
             <Fold v-if="!isCollapse" />
             <Expand v-else />
           </el-icon>
+          <el-breadcrumb separator="/" class="header-breadcrumb">
+            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
+              <span v-if="item.last">{{ item.title }}</span>
+              <router-link v-else :to="item.path">{{ item.title }}</router-link>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
+        
         <div class="header-right">
+          <el-badge :value="3" class="task-badge" type="danger">
+            <el-icon class="header-icon" @click="$router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')">
+              <Bell />
+            </el-icon>
+          </el-badge>
+
           <el-dropdown @command="handleCommand">
             <div class="user-info">
-              <el-avatar :size="32" :src="userStore.userInfo?.avatar" />
-              <span class="username">{{ userStore.userInfo?.full_name || userStore.userInfo?.username }}</span>
+              <el-avatar :size="32" :src="userStore.userInfo?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+              <span class="username">{{ userStore.userInfo?.full_name || userStore.userInfo?.username || '管理员' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
@@ -100,6 +110,7 @@
           </el-dropdown>
         </div>
       </el-header>
+      
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
           <transition name="fade-slide" mode="out-in">
@@ -109,8 +120,7 @@
       </el-main>
     </el-container>
 
-    <!-- 修改密码对话框 -->
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="500px">
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="500px" append-to-body>
       <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
         <el-form-item label="原密码" prop="oldPassword">
           <el-input v-model="passwordForm.oldPassword" type="password" show-password />
@@ -147,6 +157,16 @@ const activeMenu = computed(() => route.path)
 const passwordDialogVisible = ref(false)
 const passwordFormRef = ref(null)
 const passwordLoading = ref(false)
+
+// 面包屑计算逻辑
+const breadcrumbList = computed(() => {
+  const matched = route.matched.filter(item => item.meta?.title && item.path !== '/')
+  return matched.map((item, index) => ({
+    title: item.meta.title,
+    path: item.path,
+    last: index === matched.length - 1
+  }))
+})
 
 const passwordForm = reactive({
   oldPassword: '',
@@ -258,11 +278,6 @@ onMounted(async () => {
   letter-spacing: 1px;
 }
 
-.logo-mini {
-  width: 32px;
-  height: 32px;
-}
-
 .main-container {
   height: 100vh;
   overflow: hidden;
@@ -278,6 +293,17 @@ onMounted(async () => {
   height: 64px;
 }
 
+/* 顶部左侧：折叠和面包屑布局 */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px; 
+}
+
+.header-breadcrumb {
+  margin-top: 2px;
+}
+
 .collapse-btn {
   font-size: 18px;
   color: var(--text-regular);
@@ -287,6 +313,31 @@ onMounted(async () => {
 
 .collapse-btn:hover {
   color: var(--primary-color);
+}
+
+/* 顶部右侧：铃铛和头像布局 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: var(--text-regular);
+  cursor: pointer;
+  transition: color 0.3s;
+  display: flex;
+  align-items: center;
+}
+
+.header-icon:hover {
+  color: var(--primary-color);
+}
+
+.task-badge {
+  line-height: 1;
+  cursor: pointer;
 }
 
 .user-info {
