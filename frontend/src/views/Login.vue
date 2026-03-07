@@ -1,400 +1,216 @@
 <template>
-  <el-container class="layout-container">
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="aside-container">
-      <div class="logo">
-        <span v-if="!isCollapse" class="logo-text">自适应AI辅助医疗平台</span>
-        <span v-else class="logo-text">AI</span>
-      </div>
-      <el-menu
-        :default-active="activeMenu"
-        router
-        :collapse="isCollapse"
-        :collapse-transition="false"
-        background-color="transparent"
-        text-color="#d1e8f5"
-        active-text-color="#ffffff"
-        unique-opened
-      >
-        <template v-if="userStore.userInfo?.role === 'doctor'">
-          <el-menu-item index="/inference">
-            <el-icon><DataAnalysis /></el-icon>
-            <template #title>AI诊断</template>
-          </el-menu-item>
-          <el-menu-item index="/tasks">
-            <el-icon><List /></el-icon>
-            <template #title>我的任务</template>
-          </el-menu-item>
-          <el-menu-item index="/patient">
-            <el-icon><UserFilled /></el-icon>
-            <template #title>病例管理</template>
-          </el-menu-item>
-          <el-menu-item index="/statistics">
-            <el-icon><TrendCharts /></el-icon>
-            <template #title>统计分析</template>
-          </el-menu-item>
-          <el-menu-item index="/model-compare">
-            <el-icon><Operation /></el-icon>
-            <template #title>模型对比</template>
-          </el-menu-item>
-          <el-menu-item index="/teaching">
-            <el-icon><Reading /></el-icon>
-            <template #title>教学案例库</template>
-          </el-menu-item>
-        </template>
-
-        <template v-if="userStore.userInfo?.role === 'admin'">
-          <el-menu-item index="/dashboard">
-            <el-icon><Odometer /></el-icon>
-            <template #title>数据看板</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/models">
-            <el-icon><Box /></el-icon>
-            <template #title>模型管理</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/users">
-            <el-icon><User /></el-icon>
-            <template #title>用户管理</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/tasks">
-            <el-icon><Monitor /></el-icon>
-            <template #title>任务监控</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/system">
-            <el-icon><Setting /></el-icon>
-            <template #title>系统设置</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/logs">
-            <el-icon><Document /></el-icon>
-            <template #title>日志审计</template>
-          </el-menu-item>
-        </template>
-      </el-menu>
-    </el-aside>
-
-    <el-container class="main-container">
-      <el-header class="header-container">
-        <div class="header-left">
-          <el-icon class="collapse-btn" @click="toggleCollapse">
-            <Fold v-if="!isCollapse" />
-            <Expand v-else />
-          </el-icon>
-          <el-breadcrumb separator="/" class="header-breadcrumb">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item v-for="item in breadcrumbList" :key="item.path">
-              <span v-if="item.last">{{ item.title }}</span>
-              <router-link v-else :to="item.path">{{ item.title }}</router-link>
-            </el-breadcrumb-item>
-          </el-breadcrumb>
+  <div class="login-container">
+    <el-card class="login-card" shadow="hover">
+      <template #header>
+        <div class="login-header">
+          <h2 class="title">自适应 AI 辅助医疗推理平台</h2>
+          <p class="subtitle">专业·高效·智能的医疗AI诊断解决方案</p>
         </div>
-        
-        <div class="header-right">
-          <el-badge :value="3" class="task-badge" type="danger">
-            <el-icon class="header-icon" @click="$router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')">
-              <Bell />
-            </el-icon>
-          </el-badge>
-
-          <el-dropdown @command="handleCommand">
-            <div class="user-info">
-              <el-avatar :size="32" :src="userStore.userInfo?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
-              <span class="username">{{ userStore.userInfo?.full_name || userStore.userInfo?.username || '管理员' }}</span>
-              <el-icon><ArrowDown /></el-icon>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item command="password">修改密码</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-header>
-      
-      <el-main class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade-slide" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </el-main>
-    </el-container>
-
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="500px" append-to-body>
-      <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
-        <el-form-item label="原密码" prop="oldPassword">
-          <el-input v-model="passwordForm.oldPassword" type="password" show-password />
+      </template>
+      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" class="login-form">
+        <el-form-item prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="请输入用户名"
+            prefix-icon="User"
+            size="large"
+            clearable
+          />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password />
+        <el-form-item prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            placeholder="请输入密码"
+            prefix-icon="Lock"
+            size="large"
+            show-password
+            @keyup.enter="handleLogin"
+          />
         </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
-          <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
+        <el-form-item>
+          <el-button type="primary" size="large" style="width: 100%" :loading="loading" @click="handleLogin">
+            登 录
+          </el-button>
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="passwordLoading" @click="handlePasswordSubmit">确认修改</el-button>
-      </template>
-    </el-dialog>
-  </el-container>
+      <div class="tips">
+        <el-divider content-position="center">测试账号</el-divider>
+        <div class="account-list">
+          <p><span>管理员账号：</span><code>admin / admin123</code></p>
+          <p><span>医生账号：</span><code>doctor / doctor123</code></p>
+        </div>
+      </div>
+    </el-card>
+    <div class="footer">
+      <p>© 2025 中国石油大学（北京）软件工程专业 毕业设计</p>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
-import { useAppStore } from '@/store/modules/app'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const route = useRoute()
 const userStore = useUserStore()
-const appStore = useAppStore()
+const loginFormRef = ref(null)
+const loading = ref(false)
 
-const isCollapse = computed(() => appStore.isCollapse)
-const activeMenu = computed(() => route.path)
-const passwordDialogVisible = ref(false)
-const passwordFormRef = ref(null)
-const passwordLoading = ref(false)
-
-// 面包屑计算逻辑
-const breadcrumbList = computed(() => {
-  const matched = route.matched.filter(item => item.meta?.title && item.path !== '/')
-  return matched.map((item, index) => ({
-    title: item.meta.title,
-    path: item.path,
-    last: index === matched.length - 1
-  }))
+// 表单数据（保持原有结构）
+const loginForm = reactive({
+  username: '',
+  password: ''
 })
 
-const passwordForm = reactive({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
-
-// 密码校验规则
-const validateConfirmPassword = (rule, value, callback) => {
-  if (value !== passwordForm.newPassword) {
-    callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
-  }
+// 表单校验规则
+const rules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
-const passwordRules = {
-  oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
-  newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
-  ],
-  confirmPassword: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
-    { validator: validateConfirmPassword, trigger: 'blur' }
-  ]
-}
+// 登录处理函数（核心修复：完整错误捕获 + 参数校验 + 防重复提交）
+const handleLogin = async () => {
+  // 1. 防重复点击
+  if (loading.value) return
 
-// 切换侧边栏折叠
-const toggleCollapse = () => {
-  appStore.toggleCollapse()
-}
-
-// 下拉菜单操作
-const handleCommand = (command) => {
-  switch (command) {
-    case 'profile':
-      ElMessage.info('个人中心功能开发中')
-      break
-    case 'password':
-      passwordDialogVisible.value = true
-      break
-    case 'logout':
-      handleLogout()
-      break
-  }
-}
-
-// 退出登录
-const handleLogout = () => {
-  ElMessageBox.confirm('确定要退出登录吗?', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    userStore.logout()
-    router.push('/login')
-    ElMessage.success('退出成功')
-  })
-}
-
-// 提交修改密码
-const handlePasswordSubmit = async () => {
-  await passwordFormRef.value.validate()
-  passwordLoading.value = true
   try {
-    // 后续对接后端修改密码接口
-    ElMessage.success('密码修改成功')
-    passwordDialogVisible.value = false
-    passwordFormRef.value.resetFields()
+    // 2. 先校验表单（同步校验，确保有返回值）
+    const validateResult = await loginFormRef.value.validate()
+    if (!validateResult) {
+      return // 校验失败直接返回
+    }
+
+    // 3. 手动参数校验（去空格 + 非空检查）
+    const username = loginForm.username.trim()
+    const password = loginForm.password.trim()
+    
+    if (!username) {
+      ElMessage.error('用户名不能为空')
+      return
+    }
+    if (!password) {
+      ElMessage.error('密码不能为空')
+      return
+    }
+
+    // 4. 开始登录流程
+    loading.value = true
+    
+    // 5. 调用 store 中的登录方法（传递处理后的参数）
+    await userStore.login(username, password)
+    
+    // 6. 登录成功处理
+    ElMessage.success('登录成功')
+    // 延迟跳转，提升用户体验
+    setTimeout(() => {
+      router.push(userStore.isAdmin ? '/dashboard' : '/inference')
+    }, 500)
+
+  } catch (error) {
+    // 7. 捕获所有错误（表单校验/接口请求/其他异常）
+    console.error('登录失败:', error)
+    // 友好的错误提示
+    ElMessage.error(error.message || '登录失败，请检查账号密码或网络状态')
+
   } finally {
-    passwordLoading.value = false
+    // 8. 无论成功/失败，都关闭加载状态
+    loading.value = false
   }
 }
-
-onMounted(async () => {
-  if (!userStore.userInfo) {
-    await userStore.getUserInfo()
-  }
-})
 </script>
 
 <style scoped>
-.layout-container {
+.login-container {
   width: 100%;
-  height: 100%;
-}
-
-.aside-container {
-  background: linear-gradient(180deg, #0f4c81 0%, #1a5f7a 100%);
-  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-  transition: width 0.3s ease;
-  overflow: hidden;
-}
-
-.logo {
-  height: 64px;
+  height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  background: rgba(0,0,0,0.1);
+  background: url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80') no-repeat center center;
+  background-size: cover;
+  position: relative;
 }
 
-.logo-text {
-  font-size: 18px;
-  font-weight: bold;
-  color: #fff;
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(15,76,129,0.88) 0%, rgba(26,95,122,0.85) 100%);
+}
+
+.login-card {
+  width: 440px;
+  position: relative;
+  z-index: 1;
+  border-radius: 16px;
+}
+
+.login-header {
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: 1px;
 }
 
-.main-container {
-  height: 100vh;
-  overflow: hidden;
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
-.header-container {
-  background: #fff;
-  border-bottom: 1px solid var(--border-light);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 64px;
+.login-form {
+  margin-top: 20px;
 }
 
-/* 顶部左侧：折叠和面包屑布局 */
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px; 
+.tips {
+  margin-top: 25px;
 }
 
-.header-breadcrumb {
-  margin-top: 2px;
+.account-list {
+  padding: 10px 0;
 }
 
-.collapse-btn {
-  font-size: 18px;
-  color: var(--text-regular);
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
-.collapse-btn:hover {
-  color: var(--primary-color);
-}
-
-/* 顶部右侧：铃铛和头像布局 */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
-.header-icon {
-  font-size: 20px;
-  color: var(--text-regular);
-  cursor: pointer;
-  transition: color 0.3s;
-  display: flex;
-  align-items: center;
-}
-
-.header-icon:hover {
-  color: var(--primary-color);
-}
-
-.task-badge {
-  line-height: 1;
-  cursor: pointer;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.username {
+.account-list p {
+  margin: 8px 0;
   font-size: 14px;
   color: var(--text-regular);
+  display: flex;
+  justify-content: space-between;
+}
+
+.account-list code {
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--primary-dark);
   font-weight: 500;
 }
 
-.main-content {
-  background: var(--bg-page);
-  padding: 20px;
-  overflow-y: auto;
-  height: calc(100vh - 64px);
+.footer {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  z-index: 1;
 }
 
-/* 页面过渡动画 */
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateX(10px);
-}
-
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateX(-10px);
-}
-
-:deep(.el-menu) {
-  border-right: none;
-  background: transparent;
-}
-
-:deep(.el-menu-item) {
-  color: #d1e8f5;
-  margin: 4px 8px;
-  border-radius: 4px;
-  width: calc(100% - 16px);
-}
-
-:deep(.el-menu-item:hover),
-:deep(.el-menu-item.is-active) {
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-}
-
-:deep(.el-menu-item.is-active) {
-  background: var(--primary-color);
+:deep(.el-card__header) {
+  padding: 24px 20px;
+  border-bottom: 1px solid var(--border-light);
 }
 </style>
