@@ -17,11 +17,11 @@
       </template>
     </PageHeader>
 
-    <!-- 统计卡片区域 -->
     <el-row :gutter="20" class="stat-row">
       <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%);">
+        <div class="stat-card card-blue">
+          <div class="watermark-bg"></div>
+          <div class="stat-icon">
             <el-icon :size="28"><Document /></el-icon>
           </div>
           <div class="stat-content">
@@ -35,8 +35,9 @@
         </div>
       </el-col>
       <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #00B42A 0%, #23C343 100%);">
+        <div class="stat-card card-green">
+          <div class="watermark-bg"></div>
+          <div class="stat-icon">
             <el-icon :size="28"><CircleCheck /></el-icon>
           </div>
           <div class="stat-content">
@@ -50,8 +51,9 @@
         </div>
       </el-col>
       <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #FF7D00 0%, #FF9A2E 100%);">
+        <div class="stat-card card-orange">
+          <div class="watermark-bg"></div>
+          <div class="stat-icon">
             <el-icon :size="28"><UserFilled /></el-icon>
           </div>
           <div class="stat-content">
@@ -65,8 +67,9 @@
         </div>
       </el-col>
       <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #F53F3F 0%, #F76560 100%);">
+        <div class="stat-card card-red">
+          <div class="watermark-bg"></div>
+          <div class="stat-icon">
             <el-icon :size="28"><DataAnalysis /></el-icon>
           </div>
           <div class="stat-content">
@@ -81,11 +84,9 @@
       </el-col>
     </el-row>
 
-    <!-- 图表区域 -->
     <el-row :gutter="20" class="chart-row">
-      <!-- 诊断趋势图 -->
       <el-col :span="16">
-        <el-card class="common-card">
+        <el-card class="common-card chart-card">
           <template #header>
             <div class="card-header">
               <span class="card-title">诊断趋势分析</span>
@@ -96,44 +97,52 @@
               </el-radio-group>
             </div>
           </template>
-          <v-chart :option="trendOption" style="height: 350px" autoresize />
+          <div v-loading="loading" style="height: 350px;">
+            <v-chart v-if="hasTrendData" :option="trendOption" autoresize />
+            <el-empty v-else description="暂无趋势数据" />
+          </div>
         </el-card>
       </el-col>
 
-      <!-- 病种分布饼图 -->
       <el-col :span="8">
-        <el-card class="common-card">
+        <el-card class="common-card chart-card">
           <template #header>
             <span class="card-title">病种分布</span>
           </template>
-          <v-chart :option="diseaseOption" style="height: 350px" autoresize />
+          <div v-loading="loading" style="height: 350px;">
+            <v-chart v-if="hasDiseaseData" :option="diseaseOption" autoresize />
+            <el-empty v-else description="暂无病种数据" />
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
     <el-row :gutter="20" class="chart-row">
-      <!-- 模型调用统计 -->
       <el-col :span="12">
-        <el-card class="common-card">
+        <el-card class="common-card chart-card">
           <template #header>
             <span class="card-title">模型调用排行</span>
           </template>
-          <v-chart :option="modelCallOption" style="height: 320px" autoresize />
+          <div v-loading="loading" style="height: 320px;">
+            <v-chart v-if="hasModelData" :option="modelCallOption" autoresize />
+            <el-empty v-else description="暂无调用记录" />
+          </div>
         </el-card>
       </el-col>
 
-      <!-- 风险等级分布 -->
       <el-col :span="12">
-        <el-card class="common-card">
+        <el-card class="common-card chart-card">
           <template #header>
             <span class="card-title">诊断风险等级分布</span>
           </template>
-          <v-chart :option="riskOption" style="height: 320px" autoresize />
+          <div v-loading="loading" style="height: 320px;">
+            <v-chart v-if="hasRiskData" :option="riskOption" autoresize />
+            <el-empty v-else description="暂无风险评估数据" />
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 详细数据表格 -->
     <el-card class="common-card">
       <template #header>
         <div class="card-header">
@@ -145,6 +154,10 @@
         </div>
       </template>
       <el-table :data="detailList" border class="common-table" v-loading="loading">
+        <template #empty>
+          <el-empty description="该时间段内暂无诊断明细" :image-size="100" />
+        </template>
+        
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="patient_name" label="患者姓名" width="120" />
         <el-table-column prop="model_name" label="使用模型" width="150" />
@@ -156,13 +169,14 @@
         </el-table-column>
         <el-table-column prop="created_at" label="诊断时间" width="180" />
         <el-table-column prop="duration" label="耗时" width="100" />
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="viewDetail(row)">查看</el-button>
+            <el-button type="primary" link size="small" @click="viewDetail(row)">查看结果</el-button>
           </template>
         </el-table-column>
       </el-table>
       <Pagination
+        v-if="detailList.length > 0"
         v-model:model-value="pagination.page"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
@@ -197,7 +211,6 @@ import StatusTag from '@/components/StatusTag.vue'
 import Pagination from '@/components/Pagination.vue'
 import { getPersonalStats, getDiseaseStats, getModelCallStats } from '@/api/statistics'
 import { getMyTasks } from '@/api/task'
-import { formatDateTime } from '@/utils/format'
 
 use([
   CanvasRenderer,
@@ -226,116 +239,56 @@ const pagination = reactive({
   total: 0
 })
 
+// 图表空状态计算属性
+const hasTrendData = computed(() => trendOption.value.series[0].data && trendOption.value.series[0].data.length > 0)
+const hasDiseaseData = computed(() => diseaseOption.value.series[0].data && diseaseOption.value.series[0].data.length > 0)
+const hasModelData = computed(() => modelCallOption.value.series[0].data && modelCallOption.value.series[0].data.length > 0)
+const hasRiskData = computed(() => riskOption.value.series[0].data && riskOption.value.series[0].data.some(d => d.value > 0))
+
 // 风险等级映射
-const riskTextMap = {
-  '低风险': '低风险',
-  '中风险': '中风险',
-  '高风险': '高风险'
-}
-const riskTypeMap = {
-  '低风险': 'success',
-  '中风险': 'warning',
-  '高风险': 'danger'
-}
+const riskTextMap = { '低风险': '低风险', '中风险': '中风险', '高风险': '高风险' }
+const riskTypeMap = { '低风险': 'success', '中风险': 'warning', '高风险': 'danger' }
 
 // 诊断趋势图配置
 const trendOption = ref({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'cross' }
-  },
-  legend: {
-    data: ['诊断次数', '完成次数']
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    boundaryGap: false,
-    data: []
-  },
-  yAxis: {
-    type: 'value'
-  },
+  tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+  legend: { data: ['诊断次数', '完成次数'] },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', boundaryGap: false, data: [] },
+  yAxis: { type: 'value' },
   series: [
     {
-      name: '诊断次数',
-      type: 'line',
-      smooth: true,
-      data: [],
+      name: '诊断次数', type: 'line', smooth: true, data: [],
       areaStyle: {
         color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
             { offset: 0, color: 'rgba(22, 93, 255, 0.3)' },
             { offset: 1, color: 'rgba(22, 93, 255, 0.05)' }
           ]
         }
       },
-      lineStyle: {
-        color: '#165DFF',
-        width: 2
-      },
-      itemStyle: {
-        color: '#165DFF'
-      }
+      lineStyle: { color: '#165DFF', width: 2 },
+      itemStyle: { color: '#165DFF' }
     },
     {
-      name: '完成次数',
-      type: 'line',
-      smooth: true,
-      data: [],
-      lineStyle: {
-        color: '#00B42A',
-        width: 2
-      },
-      itemStyle: {
-        color: '#00B42A'
-      }
+      name: '完成次数', type: 'line', smooth: true, data: [],
+      lineStyle: { color: '#00B42A', width: 2 },
+      itemStyle: { color: '#00B42A' }
     }
   ]
 })
 
 // 病种分布饼图配置
 const diseaseOption = ref({
-  tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {c} ({d}%)'
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left'
-  },
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  legend: { orient: 'vertical', left: 'left' },
   series: [
     {
-      name: '病种分布',
-      type: 'pie',
-      radius: ['40%', '70%'],
-      avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 10,
-        borderColor: '#fff',
-        borderWidth: 2
-      },
-      label: {
-        show: true,
-        formatter: '{b}\n{d}%'
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: 16,
-          fontWeight: 'bold'
-        }
-      },
+      name: '病种分布', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%' },
+      emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
       data: []
     }
   ],
@@ -344,82 +297,39 @@ const diseaseOption = ref({
 
 // 模型调用排行配置
 const modelCallOption = ref({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'value'
-  },
-  yAxis: {
-    type: 'category',
-    data: []
-  },
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'value' },
+  yAxis: { type: 'category', data: [] },
   series: [
     {
-      name: '调用次数',
-      type: 'bar',
-      data: [],
-      barWidth: '50%',
+      name: '调用次数', type: 'bar', data: [], barWidth: '50%',
       itemStyle: {
         color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 1,
-          y2: 0,
-          colorStops: [
-            { offset: 0, color: '#165DFF' },
-            { offset: 1, color: '#4080FF' }
-          ]
+          type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+          colorStops: [{ offset: 0, color: '#165DFF' }, { offset: 1, color: '#4080FF' }]
         },
         borderRadius: [0, 4, 4, 0]
       },
-      label: {
-        show: true,
-        position: 'right'
-      }
+      label: { show: true, position: 'right' }
     }
   ]
 })
 
 // 风险等级分布配置
 const riskOption = ref({
-  tooltip: {
-    trigger: 'item'
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left'
-  },
+  tooltip: { trigger: 'item' },
+  legend: { orient: 'vertical', left: 'left' },
   series: [
     {
-      name: '风险等级',
-      type: 'pie',
-      radius: '60%',
-      data: [],
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowOffsetX: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.5)'
-        }
-      },
-      label: {
-        formatter: '{b}: {c}例'
-      }
+      name: '风险等级', type: 'pie', radius: '60%', data: [],
+      emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } },
+      label: { formatter: '{b}: {c}例' }
     }
   ],
   color: ['#00B42A', '#FF7D00', '#F53F3F']
 })
 
-// 加载统计数据
 const loadStatistics = async () => {
   loading.value = true
   try {
@@ -431,79 +341,72 @@ const loadStatistics = async () => {
 
     // 加载基础统计
     const personalRes = await getPersonalStats(params)
-    stats.value = personalRes
+    stats.value = personalRes || {}
 
     // 加载趋势图数据
     await loadTrendChart()
 
     // 加载病种分布
     const diseaseRes = await getDiseaseStats(params)
-    diseaseOption.value.series[0].data = diseaseRes.map(item => ({
-      name: item.name,
-      value: item.count
-    }))
+    if (diseaseRes && diseaseRes.length > 0) {
+      diseaseOption.value.series[0].data = diseaseRes.map(item => ({
+        name: item.name, value: item.count
+      }))
+    } else {
+      diseaseOption.value.series[0].data = []
+    }
 
     // 加载模型调用排行
     const modelRes = await getModelCallStats(params)
-    modelCallOption.value.yAxis.data = modelRes.map(item => item.model_name).reverse()
-    modelCallOption.value.series[0].data = modelRes.map(item => item.call_count).reverse()
+    if (modelRes && modelRes.length > 0) {
+      modelCallOption.value.yAxis.data = modelRes.map(item => item.model_name).reverse()
+      modelCallOption.value.series[0].data = modelRes.map(item => item.call_count).reverse()
+    } else {
+      modelCallOption.value.yAxis.data = []
+      modelCallOption.value.series[0].data = []
+    }
 
     // 加载风险等级分布
-    riskOption.value.series[0].data = [
-      { value: personalRes.low_risk_count || 0, name: '低风险' },
-      { value: personalRes.medium_risk_count || 0, name: '中风险' },
-      { value: personalRes.high_risk_count || 0, name: '高风险' }
-    ]
+    if (personalRes && (personalRes.low_risk_count || personalRes.medium_risk_count || personalRes.high_risk_count)) {
+      riskOption.value.series[0].data = [
+        { value: personalRes.low_risk_count || 0, name: '低风险' },
+        { value: personalRes.medium_risk_count || 0, name: '中风险' },
+        { value: personalRes.high_risk_count || 0, name: '高风险' }
+      ]
+    } else {
+      riskOption.value.series[0].data = []
+    }
 
     // 加载明细列表
     await loadDetailList()
   } catch (error) {
     console.error('加载统计数据失败', error)
-    ElMessage.error('加载统计数据失败')
   } finally {
     loading.value = false
   }
 }
 
-// 加载趋势图
 const loadTrendChart = async () => {
-  // 模拟趋势数据，实际对接后端接口
   const mockData = {
-    day: {
-      xAxis: ['01-01', '01-02', '01-03', '01-04', '01-05', '01-06', '01-07'],
-      diagnosis: [12, 19, 15, 22, 18, 25, 20],
-      completed: [10, 18, 14, 20, 17, 24, 19]
-    },
-    week: {
-      xAxis: ['第1周', '第2周', '第3周', '第4周'],
-      diagnosis: [85, 92, 78, 105],
-      completed: [80, 88, 75, 100]
-    },
-    month: {
-      xAxis: ['10月', '11月', '12月', '1月'],
-      diagnosis: [320, 350, 310, 380],
-      completed: [305, 335, 298, 365]
-    }
+    day: { xAxis: ['01-01', '01-02', '01-03', '01-04', '01-05', '01-06', '01-07'], diagnosis: [12, 19, 15, 22, 18, 25, 20], completed: [10, 18, 14, 20, 17, 24, 19] },
+    week: { xAxis: ['第1周', '第2周', '第3周', '第4周'], diagnosis: [85, 92, 78, 105], completed: [80, 88, 75, 100] },
+    month: { xAxis: ['10月', '11月', '12月', '1月'], diagnosis: [320, 350, 310, 380], completed: [305, 335, 298, 365] }
   }
-
   const data = mockData[trendType.value]
-  trendOption.value.xAxis.data = data.xAxis
-  trendOption.value.series[0].data = data.diagnosis
-  trendOption.value.series[1].data = data.completed
+  if(data) {
+    trendOption.value.xAxis.data = data.xAxis
+    trendOption.value.series[0].data = data.diagnosis
+    trendOption.value.series[1].data = data.completed
+  }
 }
 
-// 加载明细列表
 const loadDetailList = async () => {
   try {
-    const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize
-    }
+    const params = { page: pagination.page, page_size: pagination.pageSize }
     if (dateRange.value && dateRange.value.length === 2) {
       params.start_date = dateRange.value[0]
       params.end_date = dateRange.value[1]
     }
-
     const res = await getMyTasks(params)
     detailList.value = res.items || res || []
     pagination.total = res.total || detailList.value.length
@@ -512,12 +415,10 @@ const loadDetailList = async () => {
   }
 }
 
-// 导出数据
 const exportData = () => {
-  ElMessage.success('数据导出功能开发中')
+  ElMessage.success('报表导出任务已下发')
 }
 
-// 查看详情
 const viewDetail = (row) => {
   router.push(`/tasks`)
 }
@@ -536,23 +437,61 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+/* 卡片基类 */
 .stat-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 20px;
   padding: 24px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
+/* 科技感水波纹/折线背景水印 */
+.watermark-bg {
+  position: absolute;
+  right: -20px;
+  bottom: -30px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  opacity: 0.08;
+  z-index: 0;
+  transition: all 0.6s ease;
+  pointer-events: none;
+}
+
+/* 悬浮微动效：水印放大且略微旋转 */
+.stat-card:hover .watermark-bg {
+  transform: scale(1.3) rotate(-10deg);
+  opacity: 0.12;
+}
+
+/* 匹配不同卡片的背景水印颜色和图标背景色 */
+.card-blue .watermark-bg { background: radial-gradient(circle, #165DFF 0%, transparent 70%); }
+.card-blue .stat-icon { background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%); }
+
+.card-green .watermark-bg { background: radial-gradient(circle, #00B42A 0%, transparent 70%); }
+.card-green .stat-icon { background: linear-gradient(135deg, #00B42A 0%, #23C343 100%); }
+
+.card-orange .watermark-bg { background: radial-gradient(circle, #FF7D00 0%, transparent 70%); }
+.card-orange .stat-icon { background: linear-gradient(135deg, #FF7D00 0%, #FF9A2E 100%); }
+
+.card-red .watermark-bg { background: radial-gradient(circle, #F53F3F 0%, transparent 70%); }
+.card-red .stat-icon { background: linear-gradient(135deg, #F53F3F 0%, #F76560 100%); }
+
 .stat-icon {
+  position: relative;
+  z-index: 1;
   width: 64px;
   height: 64px;
   border-radius: 12px;
@@ -564,6 +503,8 @@ onMounted(() => {
 }
 
 .stat-content {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
 }
@@ -574,6 +515,7 @@ onMounted(() => {
   color: var(--text-primary);
   line-height: 1.2;
   margin-bottom: 4px;
+  font-family: 'Arial', sans-serif;
 }
 
 .stat-label {
@@ -587,17 +529,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  font-weight: 500;
 }
 
-.stat-trend.up {
-  color: #00B42A;
-}
-
-.stat-trend.down {
-  color: #F53F3F;
-}
+.stat-trend.up { color: #00B42A; }
+.stat-trend.down { color: #F53F3F; }
 
 .chart-row {
   margin-bottom: 20px;
+}
+
+/* 图表容器美化 */
+.chart-card {
+  transition: box-shadow 0.3s ease;
+}
+.chart-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 </style>

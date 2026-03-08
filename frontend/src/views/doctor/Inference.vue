@@ -1,8 +1,8 @@
 <template>
   <div class="inference-page">
     <PageHeader
-      title="AI辅助诊断"
-      description="基于异步架构的多模态医疗智能推理平台"
+      title=" AI 辅助诊断"
+      description="基于智能模型的多模态病情分析与辅助筛查"
     >
       <template #extra>
         <el-button @click="handleSaveDraft">
@@ -30,7 +30,7 @@
                 </el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="患者ID">
+                <el-form-item label="患者ID (门诊/住院号)">
                   <el-input v-model="taskForm.patientId" placeholder="请输入患者ID" clearable />
                 </el-form-item>
               </el-col>
@@ -55,7 +55,7 @@
                 </el-form-item>
               </el-col>
               <el-col :span="8">
-                <el-form-item label="检查日期">
+                <el-form-item label="就诊日期">
                   <el-date-picker
                     v-model="taskForm.checkDate"
                     type="date"
@@ -68,73 +68,108 @@
           </el-form>
         </el-card>
 
-        <el-card class="common-card visual-card" shadow="never">
+        <el-card class="common-card data-input-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <span class="card-title">医学影像与数据上传</span>
-              <span class="upload-tip">支持 JPG / PNG / DICOM 影像及 Excel 数据表</span>
+              <span class="card-title">诊断数据录入</span>
+              <el-tag v-if="selectedModel" :type="selectedModel.model_type === '单模态' ? 'primary' : 'success'" effect="light">
+                当前适配：{{ selectedModel.model_type }} AI 模型
+              </el-tag>
             </div>
           </template>
-          
-          <div class="canvas-container" v-loading="imageLoading">
-            <el-upload
-              v-show="!currentImage"
-              class="upload-area"
-              drag
-              multiple
-              action="#"
-              :auto-upload="false"
-              :on-change="handleFileChange"
-              :on-remove="handleFileRemove"
-              :file-list="fileList"
-              accept=".jpg,.jpeg,.png,.dcm,.xlsx,.xls"
-            >
-              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-              <div class="el-upload__text">将文件拖到此处，或 <em>点击上传</em></div>
-              <template #tip>
-                <div class="el-upload__tip text-center">单个文件大小不超过 50MB</div>
-              </template>
-            </el-upload>
 
-            <div v-show="currentImage" class="preview-area">
-              <img :src="currentImage" class="preview-image" alt="医学影像" />
-              <canvas ref="resultCanvas" class="result-canvas"></canvas>
+          <div v-if="!selectedModel" class="empty-model-state">
+            <el-empty description="👉 请先在右侧选择 AI 诊断模型，系统将自动生成所需的数据输入项" :image-size="120" />
+          </div>
+
+          <div v-else class="adaptive-input-area">
+            
+            <div class="input-section">
+              <div class="section-title">
+                <span class="step-num">1</span> 上传医学影像资料
+                <span class="upload-tip">(支持 JPG / PNG / DICOM 格式)</span>
+              </div>
               
-              <div class="preview-actions">
-                <el-tooltip content="清除并重新上传" placement="left">
-                  <el-button type="danger" circle icon="Delete" @click="clearImage" />
-                </el-tooltip>
+              <div class="canvas-container" v-loading="imageLoading">
+                <el-upload
+                  v-show="!currentImage"
+                  class="upload-area"
+                  drag
+                  multiple
+                  action="#"
+                  :auto-upload="false"
+                  :on-change="handleFileChange"
+                  :on-remove="handleFileRemove"
+                  :file-list="fileList"
+                  accept=".jpg,.jpeg,.png,.dcm"
+                >
+                  <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+                  <div class="el-upload__text">将影像文件拖到此处，或 <em>点击上传</em></div>
+                  <template #tip>
+                    <div class="el-upload__tip text-center">系统将自动进行影像脱敏与预处理，单文件不超过 50MB</div>
+                  </template>
+                </el-upload>
+
+                <div v-show="currentImage" class="preview-area">
+                  <img :src="currentImage" class="preview-image" alt="医学影像预览" />
+                  <canvas ref="resultCanvas" class="result-canvas"></canvas>
+                  <div class="preview-actions">
+                    <el-tooltip content="清除并重新上传" placement="left">
+                      <el-button type="danger" circle icon="Delete" @click="clearImage" />
+                    </el-tooltip>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div v-if="currentImage && fileList.length > 1" class="extra-files">
-            <el-tag v-for="file in nonImageFiles" :key="file.uid" size="small" type="info" closable @close="handleFileRemove(file, fileList)">
-              {{ file.name }}
-            </el-tag>
+
+            <el-divider v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" border-style="dashed" />
+
+            <div v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" class="input-section">
+              <div class="section-title">
+                <span class="step-num">2</span> 补充临床与检验特征 <el-tag size="small" type="warning" class="ml-2">多模态所需</el-tag>
+              </div>
+              <div class="dynamic-form-wrapper">
+                <el-alert title="请尽量完整填写以下指标，以提升 AI 联合诊断的准确率。" type="info" show-icon :closable="false" style="margin-bottom: 16px;" />
+                <DynamicForm v-model="taskForm.inputData" :schema="selectedModel.input_schema" />
+              </div>
+            </div>
+            
+            <div v-if="selectedModel.model_type === '多模态'" class="input-section" style="margin-top: 20px;">
+               <div class="section-title">
+                <span class="step-num">3</span> 批量检验数据上传 (可选)
+              </div>
+              <el-upload
+                action="#"
+                :auto-upload="false"
+                :on-change="handleExtraFileChange"
+                :on-remove="handleExtraFileRemove"
+                :file-list="extraFileList"
+                accept=".xlsx,.xls,.csv"
+              >
+                <el-button type="primary" plain size="small"><el-icon><Paperclip /></el-icon> 附加 Excel/CSV 数据表</el-button>
+              </el-upload>
+            </div>
+
           </div>
         </el-card>
       </el-col>
 
       <el-col :span="8" class="right-column">
-        <el-card class="common-card" shadow="never">
+        
+        <el-card class="common-card model-select-card" shadow="never">
           <template #header>
-            <span class="card-title">AI诊断模型选择</span>
+            <span class="card-title"><el-icon><Cpu /></el-icon> 选择 AI 诊断模型</span>
           </template>
           
           <el-select
             v-model="taskForm.modelId"
-            placeholder="请选择AI诊断模型"
+            placeholder="请选择适用的 AI 诊断模型"
             style="width: 100%; margin-bottom: 16px;"
             @change="onModelChange"
             clearable
             size="large"
           >
-            <el-option-group
-              v-for="group in modelGroup"
-              :key="group.type"
-              :label="group.label"
-            >
+            <el-option-group v-for="group in modelGroup" :key="group.type" :label="group.label">
               <el-option
                 v-for="model in group.models"
                 :key="model.id"
@@ -149,8 +184,22 @@
             </el-option-group>
           </el-select>
 
-          <div class="favorite-models" v-if="favoriteModels.length > 0">
-            <span class="label">常用:</span>
+          <div v-if="selectedModel" class="model-brief">
+            <div class="brief-title">
+              模型简介
+              <el-button :type="isFavorite ? 'warning' : 'primary'" :icon="isFavorite ? 'StarFilled' : 'Star'" size="small" link @click="toggleFavorite">
+                {{ isFavorite ? '已收藏' : '收藏' }}
+              </el-button>
+            </div>
+            <p>{{ selectedModel.description || '该模型暂无详细描述。' }}</p>
+            <div class="metrics" v-if="selectedModel.accuracy || selectedModel.auc">
+              <el-tag size="small" type="info" v-if="selectedModel.accuracy">准确率: {{ selectedModel.accuracy }}</el-tag>
+              <el-tag size="small" type="info" v-if="selectedModel.auc">AUC: {{ selectedModel.auc }}</el-tag>
+            </div>
+          </div>
+
+          <div class="favorite-models" v-if="favoriteModels.length > 0 && !selectedModel">
+            <span class="label">常用模型:</span>
             <el-space wrap>
               <el-tag
                 v-for="model in favoriteModels"
@@ -168,66 +217,28 @@
           </div>
         </el-card>
 
-        <el-card v-if="selectedModel" class="common-card model-config-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">配置与特征输入</span>
-              <div class="header-actions">
-                <el-tag :type="selectedModel.model_type === '单模态' ? 'primary' : 'success'" size="small">
-                  {{ selectedModel.model_type }}
-                </el-tag>
-                <el-button
-                  :type="isFavorite ? 'warning' : 'primary'"
-                  :icon="isFavorite ? 'StarFilled' : 'Star'"
-                  size="small"
-                  link
-                  @click="toggleFavorite"
-                >
-                  {{ isFavorite ? '取消' : '收藏' }}
-                </el-button>
-              </div>
-            </div>
-          </template>
-          
-          <div class="model-desc-mini">
-            {{ selectedModel.description || '暂无描述' }}
-            <div class="metrics">
-              <span v-if="selectedModel.accuracy">准确率: {{ selectedModel.accuracy }}</span>
-              <span v-if="selectedModel.auc">AUC: {{ selectedModel.auc }}</span>
-            </div>
-          </div>
-
-          <el-divider border-style="dashed" />
-          
-          <div class="dynamic-schema">
-            <div class="section-title">临床特征录入</div>
-            <DynamicForm v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" v-model="taskForm.inputData" :schema="selectedModel.input_schema" />
-            <el-empty v-else description="当前为单模态模型，仅需影像数据" :image-size="60" />
-          </div>
-        </el-card>
-
         <div class="submit-section">
           <el-button 
             type="primary" 
             size="large" 
             class="w-full submit-btn" 
             :loading="submitting" 
-            :disabled="!taskForm.modelId || fileList.length === 0"
+            :disabled="!taskForm.modelId || (fileList.length === 0 && !Object.keys(taskForm.inputData).length)"
             @click="handleSubmit"
           >
-            <el-icon><VideoPlay /></el-icon>
-            提交异步推理任务
+            <el-icon><Monitor /></el-icon>
+            开始 AI 智能分析
           </el-button>
           <div class="submit-tip">
-            <el-icon><InfoFilled /></el-icon> 任务将排队执行，可稍后在右上角通知或任务列表中查看。
+            <el-icon><InfoFilled /></el-icon> 诊断请求将在后台安全进行，报告生成后将提醒您。
           </div>
         </div>
 
         <el-card class="common-card history-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <span class="card-title">最近任务追踪</span>
-              <el-button type="primary" link size="small" @click="goToTaskList">查看全部</el-button>
+              <span class="card-title">今日诊断记录</span>
+              <el-button type="primary" link size="small" @click="goToTaskList">进入工作台</el-button>
             </div>
           </template>
           <el-timeline v-if="recentTasks.length > 0">
@@ -240,17 +251,17 @@
             >
               <div class="timeline-content">
                 <span class="task-model">{{ item.model_name }}</span>
-                <span class="task-patient">{{ item.patient_name || '匿名患者' }}</span>
+                <span class="task-patient">患者: {{ item.patient_name || '匿名' }}</span>
               </div>
               <div class="timeline-status">
-                <span v-if="item.status === 'pending'" class="text-warning"><el-icon class="is-loading"><Loading /></el-icon> 排队中</span>
-                <span v-else-if="item.status === 'processing'" class="text-primary"><el-icon class="is-loading"><Loading /></el-icon> 推理中</span>
-                <span v-else-if="item.status === 'completed'" class="text-success cursor-pointer" @click="viewTaskDetail(item)">查看结果 -></span>
-                <span v-else class="text-danger">推理失败</span>
+                <span v-if="item.status === 'pending'" class="text-warning"><el-icon class="is-loading"><Loading /></el-icon> 等待分析</span>
+                <span v-else-if="item.status === 'processing'" class="text-primary"><el-icon class="is-loading"><Loading /></el-icon> AI 分析中...</span>
+                <span v-else-if="item.status === 'completed'" class="text-success cursor-pointer" @click="viewTaskDetail(item)">报告已生成，点击查看 <el-icon><ArrowRight /></el-icon></span>
+                <span v-else class="text-danger">分析失败，请重试</span>
               </div>
             </el-timeline-item>
           </el-timeline>
-          <el-empty v-else description="暂无近期任务" :image-size="60" />
+          <el-empty v-else description="暂无进行中的诊断" :image-size="60" />
         </el-card>
       </el-col>
     </el-row>
@@ -259,7 +270,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getActiveModels } from '@/api/model'
 import { createTask, getMyTasks } from '@/api/task'
@@ -267,11 +278,13 @@ import PageHeader from '@/components/PageHeader.vue'
 import DynamicForm from '@/components/DynamicForm.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // 状态变量
 const models = ref([])
 const selectedModel = ref(null)
-const fileList = ref([])
+const fileList = ref([])      // 影像文件
+const extraFileList = ref([]) // Excel等附加文件
 const submitting = ref(false)
 const recentTasks = ref([])
 
@@ -291,19 +304,14 @@ const taskForm = reactive({
   inputData: {}
 })
 
-// 计算非图片的附加文件（如Excel）
-const nonImageFiles = computed(() => {
-  return fileList.value.filter(f => !f.raw.type.startsWith('image/') && !f.name.endsWith('.dcm'))
-})
-
-// 模型分组
+// 模型分组逻辑
 const modelGroup = computed(() => {
   const group = {}
   models.value.forEach(model => {
     if (!group[model.model_type]) {
       group[model.model_type] = {
         type: model.model_type,
-        label: model.model_type === '单模态' ? '单模态影像模型' : '多模态综合模型',
+        label: model.model_type === '单模态' ? '单模态专病模型 (仅需影像)' : '多模态联合诊断模型 (影像+临床指标)',
         models: []
       }
     }
@@ -312,20 +320,17 @@ const modelGroup = computed(() => {
   return Object.values(group)
 })
 
-// 收藏的模型
 const favoriteModels = computed(() => {
   const favorites = JSON.parse(localStorage.getItem('favorite_models') || '[]')
   return models.value.filter(model => favorites.includes(model.id))
 })
 
-// 是否收藏当前模型
 const isFavorite = computed(() => {
   if (!selectedModel.value) return false
   const favorites = JSON.parse(localStorage.getItem('favorite_models') || '[]')
   return favorites.includes(selectedModel.value.id)
 })
 
-// 加载模型列表
 const loadModels = async () => {
   try {
     models.value = await getActiveModels()
@@ -334,25 +339,24 @@ const loadModels = async () => {
   }
 }
 
-// 加载最近任务
 const loadRecentTasks = async () => {
   try {
-    const res = await getMyTasks({ limit: 5 })
-    recentTasks.value = res
+    const res = await getMyTasks({ limit: 4 })
+    recentTasks.value = res.items || res || []
   } catch (error) {
     console.error('加载最近任务失败', error)
   }
 }
 
-// 模型切换
+// 核心自适应逻辑：模型切换时清空旧数据
 const onModelChange = (modelId) => {
   selectedModel.value = models.value.find(m => m.id === modelId)
+  taskForm.inputData = {} // 重置特征输入
 }
 
-// 文件处理与本地预览
+// 影像文件处理
 const handleFileChange = (uploadFile, uploadFiles) => {
   fileList.value = uploadFiles
-  // 查找第一个图片文件进行大屏预览
   const imageFile = uploadFiles.find(f => f.raw.type.startsWith('image/') || f.name.endsWith('.dcm'))
   
   if (imageFile && !currentImage.value) {
@@ -368,7 +372,6 @@ const handleFileChange = (uploadFile, uploadFiles) => {
 
 const handleFileRemove = (file, uploadFiles) => {
   fileList.value = uploadFiles
-  // 如果移除的是当前预览的图片，清空预览
   if (uploadFiles.filter(f => f.raw.type.startsWith('image/') || f.name.endsWith('.dcm')).length === 0) {
     currentImage.value = null
   }
@@ -376,10 +379,17 @@ const handleFileRemove = (file, uploadFiles) => {
 
 const clearImage = () => {
   currentImage.value = null
-  fileList.value = nonImageFiles.value // 保留非图片文件
+  fileList.value = [] 
 }
 
-// 收藏切换
+// 附加文件处理 (Excel)
+const handleExtraFileChange = (uploadFile, uploadFiles) => {
+  extraFileList.value = uploadFiles
+}
+const handleExtraFileRemove = (file, uploadFiles) => {
+  extraFileList.value = uploadFiles
+}
+
 const toggleFavorite = () => {
   if (!selectedModel.value) return
   const favorites = JSON.parse(localStorage.getItem('favorite_models') || '[]')
@@ -389,7 +399,7 @@ const toggleFavorite = () => {
     ElMessage.success('已取消收藏')
   } else {
     favorites.push(selectedModel.value.id)
-    ElMessage.success('收藏成功')
+    ElMessage.success('已添加到常用模型')
   }
   localStorage.setItem('favorite_models', JSON.stringify(favorites))
 }
@@ -400,17 +410,14 @@ const removeFavorite = (id) => {
   if (index > -1) {
     favorites.splice(index, 1)
     localStorage.setItem('favorite_models', JSON.stringify(favorites))
-    ElMessage.success('已取消收藏')
   }
 }
 
-// 保存草稿
 const handleSaveDraft = () => {
   localStorage.setItem('diagnosis_draft', JSON.stringify(taskForm))
-  ElMessage.success('草稿保存成功')
+  ElMessage.success('患者信息草稿保存成功')
 }
 
-// 重置表单
 const resetForm = () => {
   Object.keys(taskForm).forEach(key => {
     if (typeof taskForm[key] === 'object' && !Array.isArray(taskForm[key])) {
@@ -420,15 +427,16 @@ const resetForm = () => {
     }
   })
   fileList.value = []
+  extraFileList.value = []
   currentImage.value = null
   selectedModel.value = null
   ElMessage.success('表单已重置')
 }
 
-// 提交异步诊断（核心修改：提交即走，不阻塞等待）
+// 提交 AI 诊断
 const handleSubmit = async () => {
   if (!taskForm.modelId) {
-    ElMessage.warning('请选择AI诊断模型')
+    ElMessage.warning('请选择诊断模型')
     return
   }
 
@@ -437,38 +445,40 @@ const handleSubmit = async () => {
     const formData = new FormData()
     formData.append('model_id', taskForm.modelId)
     
-    // 附加基础信息
+    // 附加患者基础信息
     Object.keys(taskForm).forEach(key => {
       if (taskForm[key] !== null && taskForm[key] !== '' && key !== 'inputData' && key !== 'modelId') {
         formData.append(key, taskForm[key])
       }
     })
     
-    // 附加动态 Schema 数据
+    // 附加动态 Schema 数据 (临床特征)
     if (Object.keys(taskForm.inputData).length) {
       formData.append('input_data', JSON.stringify(taskForm.inputData))
     }
     
-    // 附加文件
-    fileList.value.forEach(file => {
+    // 附加所有文件
+    const allFiles = [...fileList.value, ...extraFileList.value]
+    allFiles.forEach(file => {
       if (file.raw) formData.append('files', file.raw)
     })
 
-    // 提交任务到后端 Celery 队列
+    // 提交任务到后端
     await createTask(formData)
     
-    // 提交成功，刷新历史记录，无需等待结果返回
-    ElMessage.success('任务已成功提交至推理队列，请留意页面通知。')
-    loadRecentTasks()
+    ElMessage.success({
+      message: '诊断请求已提交，AI 正在后台为您分析，请稍后查看结果。',
+      duration: 4000
+    })
+    loadRecentTasks() // 刷新右侧记录列表
 
   } catch (error) {
-    ElMessage.error('任务提交失败')
+    ElMessage.error('请求提交失败，请检查网络或联系管理员')
   } finally {
     submitting.value = false
   }
 }
 
-// 跳转到任务列表查看结果
 const viewTaskDetail = (item) => {
   router.push(`/tasks?taskId=${item.id}`)
 }
@@ -477,15 +487,22 @@ const goToTaskList = () => {
   router.push('/tasks')
 }
 
-onMounted(() => {
-  loadModels()
+onMounted(async () => {
+  await loadModels()
   loadRecentTasks()
-  // 加载草稿
-  const draft = localStorage.getItem('diagnosis_draft')
-  if (draft) {
-    Object.assign(taskForm, JSON.parse(draft))
-    if (taskForm.modelId) {
-      onModelChange(taskForm.modelId)
+  
+  // 处理从患者列表传递过来的快捷发起诊断
+  if (route.query.patient_id) {
+    taskForm.patientId = route.query.patient_id
+    // 实际项目中这里可以调用API根据ID带出患者姓名、年龄等信息
+  } else {
+    // 否则加载本地草稿
+    const draft = localStorage.getItem('diagnosis_draft')
+    if (draft) {
+      Object.assign(taskForm, JSON.parse(draft))
+      if (taskForm.modelId) {
+        onModelChange(taskForm.modelId)
+      }
     }
   }
 })
@@ -494,48 +511,54 @@ onMounted(() => {
 <style scoped>
 .inference-page { width: 100%; }
 
-.inference-container {
-  display: flex;
-  align-items: stretch;
-}
+.inference-container { display: flex; align-items: stretch; }
+.left-column, .right-column { display: flex; flex-direction: column; gap: 20px; }
 
-.left-column, .right-column {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+.card-header { display: flex; justify-content: space-between; align-items: center; }
+.card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
+/* 自适应数据录入区特有样式 */
+.empty-model-state {
+  height: 300px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  background-color: var(--el-fill-color-light);
+  border-radius: 8px;
+  border: 1px dashed var(--el-border-color);
 }
 
-.upload-tip { font-size: 12px; color: var(--text-secondary); }
+.adaptive-input-area {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.input-section { margin-bottom: 24px; }
+.section-title { 
+  font-size: 15px; font-weight: bold; color: var(--text-primary); 
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.step-num {
+  display: inline-flex; justify-content: center; align-items: center;
+  width: 20px; height: 20px; background-color: var(--el-color-primary);
+  color: #fff; border-radius: 50%; font-size: 12px;
+}
+.upload-tip { font-size: 12px; color: var(--text-secondary); font-weight: normal;}
+.ml-2 { margin-left: 8px; }
 
 /* 影像预览区深度定制 */
-.visual-card { flex: 1; display: flex; flex-direction: column; }
-:deep(.visual-card .el-card__body) { flex: 1; display: flex; flex-direction: column; }
-
 .canvas-container {
-  flex: 1; 
-  min-height: 450px;
+  min-height: 280px;
   background: #1e1e1e; /* 医疗影像深色背景 */
   border-radius: 8px;
-  display: flex; 
-  align-items: center; 
-  justify-content: center;
-  position: relative; 
-  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
   border: 1px dashed var(--border-color);
 }
-
 .upload-area { width: 100%; padding: 0 40px; }
 :deep(.el-upload-dragger) { background: transparent; border: none; }
 :deep(.el-upload__text) { color: #888; }
@@ -548,38 +571,29 @@ onMounted(() => {
 .preview-image { max-width: 100%; max-height: 100%; object-fit: contain; }
 .result-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
 .preview-actions { position: absolute; top: 16px; right: 16px; z-index: 10; }
-.extra-files { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* 右侧组件样式 */
-.favorite-models {
-  font-size: 13px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+/* 右侧模型选择面板样式 */
+.model-brief {
+  margin-top: 16px; padding: 16px;
+  background-color: var(--el-fill-color-light); border-radius: 8px;
 }
-.favorite-models .label { padding-top: 4px; }
+.brief-title { font-size: 13px; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+.model-brief p { font-size: 13px; color: var(--text-regular); line-height: 1.5; margin: 0 0 12px 0;}
+.metrics { display: flex; gap: 8px; }
+
+.favorite-models { font-size: 13px; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px; margin-top: 12px;}
+.favorite-models .label { padding-top: 4px; flex-shrink: 0;}
 .cursor-pointer { cursor: pointer; }
-
-.model-config-card { flex-shrink: 0; }
-.model-desc-mini {
-  font-size: 13px;
-  color: var(--text-regular);
-  line-height: 1.6;
-}
-.model-desc-mini .metrics { margin-top: 8px; display: flex; gap: 16px; color: var(--text-secondary); }
-
-.section-title { 
-  font-size: 14px; font-weight: bold; color: var(--text-primary); 
-  margin-bottom: 16px; padding-left: 8px; border-left: 4px solid var(--primary-color);
-}
 
 /* 提交按钮区域 */
 .w-full { width: 100%; }
-.submit-section { text-align: center; }
-.submit-btn { border-radius: 8px; font-size: 16px; font-weight: bold; }
+.submit-section { text-align: center; margin: 10px 0;}
+.submit-btn { 
+  border-radius: 12px; font-size: 16px; font-weight: bold; 
+  padding: 24px 0; box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
+}
 .submit-tip { 
-  margin-top: 10px; font-size: 12px; color: var(--text-secondary); 
+  margin-top: 12px; font-size: 12px; color: var(--text-secondary); 
   display: flex; align-items: center; justify-content: center; gap: 4px;
 }
 
