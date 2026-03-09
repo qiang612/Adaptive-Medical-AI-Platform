@@ -586,52 +586,39 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
+/* ========== 卡片样式 ========== */
 .stat-card {
   display: flex;
   align-items: center;
   gap: 20px;
   padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  color: #fff; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
-  margin-bottom: 20px; /* 为响应式折叠提供底部间距 */
+  margin-bottom: 20px;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
-.stat-card.primary {
-  background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%);
-  color: #fff;
-}
+/* 使用柔和的渐变色配方 */
+.stat-card.primary { background: linear-gradient(135deg, #7ba8ff 0%, #165DFF 100%); }
+.stat-card.success { background: linear-gradient(135deg, #6ae086 0%, #00B42A 100%); }
+.stat-card.warning { background: linear-gradient(135deg, #ffb86c 0%, #FF7D00 100%); }
+.stat-card.danger { background: linear-gradient(135deg, #ff9894 0%, #F53F3F 100%); }
 
-.stat-card.success {
-  background: linear-gradient(135deg, #00B42A 0%, #23C343 100%);
-  color: #fff;
-}
-
-.stat-card.warning {
-  background: linear-gradient(135deg, #FF7D00 0%, #FF9A2E 100%);
-  color: #fff;
-}
-
-.stat-card.danger {
-  background: linear-gradient(135deg, #F53F3F 0%, #F76560 100%);
-  color: #fff;
-}
-
-.stat-icon {
+.stat-card .stat-icon {
   width: 64px;
   height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%; 
+  background: rgba(255, 255, 255, 0.2); 
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   flex-shrink: 0;
+  color: #fff;
 }
 
 .stat-content {
@@ -644,12 +631,16 @@ onMounted(() => {
   font-weight: 700;
   line-height: 1.2;
   margin-bottom: 4px;
+  color: #ffffff; 
 }
 
+/* 核心优化：提升说明文字的辨识度 */
 .stat-label {
-  font-size: 14px;
-  opacity: 0.85;
+  font-size: 15px;      /* 稍微调大字号 */
+  font-weight: 500;     /* 增加字重 */
+  color: #ffffff;       /* 强制纯白色，摆脱透明度导致的暗淡 */
   margin-bottom: 6px;
+  opacity: 1;           /* 确保不被父级透明度干扰 */
 }
 
 .stat-trend {
@@ -657,15 +648,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
-.stat-trend.up {
-  color: #fff;
-}
-
+.stat-trend.up,
 .stat-trend.down {
-  color: #FFECE8;
+  color: #ffffff;
 }
 
 .chart-row {
@@ -678,7 +666,6 @@ onMounted(() => {
   align-items: center;
 }
 
-/* 适配移动端 Welcome Banner */
 @media screen and (max-width: 768px) {
   .welcome-banner {
     flex-direction: column;

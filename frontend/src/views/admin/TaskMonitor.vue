@@ -496,7 +496,7 @@ onUnmounted(() => {
   width: 100%;
 }
 
-/* 统计卡片 */
+/* ========== 统计卡片样式 ========== */
 .stat-row {
   margin-bottom: 24px;
 }
@@ -506,27 +506,53 @@ onUnmounted(() => {
   gap: 16px;
   padding: 20px;
   border-radius: 12px;
-  margin-bottom: 16px; /* 移动端适配 */
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  color: #fff; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+  margin-bottom: 16px; 
 }
+
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
-.stat-card.primary { background: linear-gradient(135deg, #165DFF 0%, #4080FF 100%); color: #fff; }
-.stat-card.success { background: linear-gradient(135deg, #00B42A 0%, #23C343 100%); color: #fff; }
-.stat-card.warning { background: linear-gradient(135deg, #FF7D00 0%, #FF9A2E 100%); color: #fff; }
-.stat-card.danger { background: linear-gradient(135deg, #F53F3F 0%, #F76560 100%); color: #fff; }
+
+.stat-card.primary { background: linear-gradient(135deg, #7ba8ff 0%, #165DFF 100%); }
+.stat-card.success { background: linear-gradient(135deg, #6ae086 0%, #00B42A 100%); }
+.stat-card.warning { background: linear-gradient(135deg, #ffb86c 0%, #FF7D00 100%); }
+.stat-card.danger { background: linear-gradient(135deg, #ff9894 0%, #F53F3F 100%); }
 
 .stat-icon {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  display: flex; align-items: center; justify-content: center;
+  width: 56px; 
+  height: 56px; 
+  border-radius: 50%; 
+  background: rgba(255, 255, 255, 0.2); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
   flex-shrink: 0;
+  color: #fff;
 }
-.stat-number { font-size: 32px; font-weight: 700; line-height: 1.2; margin-bottom: 4px; }
-.stat-label { font-size: 14px; opacity: 0.9; }
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-number { 
+  font-size: 32px; 
+  font-weight: 700; 
+  line-height: 1.2; 
+  margin-bottom: 4px; 
+  color: #ffffff; 
+}
+
+/* 核心优化：提升说明文字的辨识度 */
+.stat-label { 
+  font-size: 15px;      /* 稍微调大字号 */
+  font-weight: 500;     /* 增加字重 */
+  color: #ffffff;       /* 强制纯白色，摆脱透明度导致的暗淡 */
+  opacity: 1;           /* 确保不被父级透明度干扰 */
+}
 
 /* ---------------------------------
    Worker 集群区块 (CSS Grid 平铺)

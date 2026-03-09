@@ -7,6 +7,7 @@
 
     <el-card class="common-card">
       <el-tabs v-model="activeTab" class="custom-tabs">
+        
         <el-tab-pane label="全局配置" name="global">
           <el-form :model="globalForm" label-width="180px" class="setting-form">
             
@@ -140,7 +141,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="存储引擎" name="storage">
-          <div class="setting-section">
+          <div class="setting-section center-section-wrapper">
             <el-alert
               title="存储配置用于管理平台医学影像、文档、模型权重的存储底层，修改后需重启后端服务生效"
               type="warning"
@@ -227,7 +228,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="邮件与通知" name="email">
-          <div class="setting-section">
+          <div class="setting-section center-section-wrapper">
             <el-form :model="emailForm" label-width="180px" class="setting-form">
               <div class="section-header">
                 <div class="section-title"><el-icon><Message /></el-icon> SMTP 服务器配置</div>
@@ -619,7 +620,21 @@ onMounted(() => { loadAllConfig() })
 }
 
 /* ----------------------------------
-   卡片内嵌逻辑分块 (核心优化区)
+   基础表单及布局设定
+-----------------------------------*/
+
+.setting-form {
+  padding: 10px 20px;
+}
+
+/* 专门给存储引擎和邮件通知使用的居中容器 */
+.center-section-wrapper {
+  max-width: 850px;
+  margin: 0 auto 24px auto;
+}
+
+/* ----------------------------------
+   卡片内嵌逻辑分块
 -----------------------------------*/
 .setting-section {
   background: var(--bg-card);
@@ -653,7 +668,7 @@ onMounted(() => { loadAllConfig() })
 }
 
 .section-body {
-  padding: 24px 24px 8px 24px;
+  padding: 24px 24px 8px 24px; 
 }
 
 .form-tip {
@@ -713,14 +728,15 @@ onMounted(() => { loadAllConfig() })
   margin-bottom: 24px;
 }
 
-/* 底部操作区 */
+/* 底部操作区：这里利用 justify-content: center 强制统一居中 */
 .form-footer-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 16px;
+  justify-content: center;
+  gap: 20px;
   padding: 20px 24px;
-  background-color: #fff;
+  background-color: transparent;
   border-top: 1px dashed var(--border-light);
+  margin-top: 20px;
 }
 
 .template-header {
