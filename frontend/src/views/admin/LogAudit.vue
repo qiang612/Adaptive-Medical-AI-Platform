@@ -7,7 +7,6 @@
 
     <el-card class="common-card">
       <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange">
-        <!-- 操作日志 -->
         <el-tab-pane label="操作日志" name="operation">
           <SearchBar
             :show-keyword="true"
@@ -35,6 +34,11 @@
               </el-select>
             </el-form-item>
           </SearchBar>
+
+          <div class="trend-container">
+            <div class="trend-header">近 7 日操作频率与报错趋势</div>
+            <v-chart :option="operationTrendOption" style="height: 100px" autoresize />
+          </div>
 
           <el-table :data="operationLogList" border class="common-table" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80" />
@@ -83,7 +87,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 登录日志 -->
         <el-tab-pane label="登录日志" name="login">
           <SearchBar
             :show-keyword="true"
@@ -99,6 +102,11 @@
               </el-select>
             </el-form-item>
           </SearchBar>
+
+          <div class="trend-container">
+            <div class="trend-header">近 7 日平台登录活跃度趋势</div>
+            <v-chart :option="loginTrendOption" style="height: 100px" autoresize />
+          </div>
 
           <el-table :data="loginLogList" border class="common-table" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80" />
@@ -140,7 +148,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- 推理日志 -->
         <el-tab-pane label="推理日志" name="inference">
           <SearchBar
             :show-keyword="true"
@@ -158,6 +165,11 @@
               </el-select>
             </el-form-item>
           </SearchBar>
+
+          <div class="trend-container">
+            <div class="trend-header">近 7 日 AI 诊断推理调用趋势</div>
+            <v-chart :option="inferenceTrendOption" style="height: 100px" autoresize />
+          </div>
 
           <el-table :data="inferenceLogList" border class="common-table" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80" />
@@ -202,10 +214,9 @@
       </el-tabs>
     </el-card>
 
-    <!-- 日志详情抽屉 -->
-    <el-drawer v-model="detailDrawerVisible" title="日志详情" size="40%">
+    <el-drawer v-model="detailDrawerVisible" title="日志详情快照" size="45%" class="log-drawer">
       <div v-if="currentLog" class="log-detail-content">
-        <el-descriptions :column="1" border>
+        <el-descriptions :column="1" border class="custom-descriptions">
           <el-descriptions-item
             v-for="(value, key) in currentLog"
             :key="key"
@@ -213,6 +224,12 @@
           >
             <template v-if="typeof value === 'object' && value !== null">
               <pre class="json-block">{{ JSON.stringify(value, null, 2) }}</pre>
+            </template>
+            <template v-else-if="key === 'status'">
+              <StatusTag v-if="activeTab === 'inference'" :status="value" />
+              <el-tag v-else :type="value === 'success' ? 'success' : 'danger'" size="small">
+                {{ value === 'success' ? '成功' : '失败' }}
+              </el-tag>
             </template>
             <template v-else>
               {{ value || '-' }}
@@ -227,11 +244,21 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import Pagination from '@/components/Pagination.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { getOperationLogs, getLoginLogs, getInferenceLogs, exportLogs } from '@/api/log'
+
+// ECharts 引入
+import VChart from 'vue-echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { BarChart, LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
+
+use([CanvasRenderer, BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
 const activeTab = ref('operation')
 const loading = ref(false)
@@ -240,32 +267,32 @@ const currentLog = ref(null)
 
 // 字段映射
 const keyMap = {
-  id: 'ID',
+  id: '系统 ID',
   operator_name: '操作人',
   operation_type: '操作类型',
   operation_content: '操作内容',
   resource_type: '资源类型',
   resource_id: '资源ID',
-  ip_address: 'IP地址',
-  status: '状态',
-  duration: '耗时',
-  created_at: '操作时间',
-  username: '用户名',
-  full_name: '姓名',
-  role: '角色',
-  user_agent: '设备信息',
-  location: '登录地点',
-  fail_reason: '失败原因',
-  login_time: '登录时间',
-  task_id: '任务ID',
-  model_name: '模型名称',
-  doctor_name: '医生姓名',
-  patient_name: '患者姓名',
-  worker_name: '处理节点',
-  input_data_size: '输入数据量',
-  request_params: '请求参数',
-  response_data: '响应数据',
-  error_msg: '错误信息'
+  ip_address: 'IP 地址',
+  status: '最终状态',
+  duration: '处理耗时',
+  created_at: '记录时间',
+  username: '登录账号',
+  full_name: '真实姓名',
+  role: '平台角色',
+  user_agent: 'User Agent 设备信息',
+  location: '解析登录地点',
+  fail_reason: '失败/拒绝原因',
+  login_time: '登录发生时间',
+  task_id: '全局任务 ID',
+  model_name: '调用模型名称',
+  doctor_name: '提交医生姓名',
+  patient_name: '关联患者姓名',
+  worker_name: '执行 Worker 节点',
+  input_data_size: '输入数据量 (Payload Size)',
+  request_params: '原始请求参数',
+  response_data: '核心响应数据',
+  error_msg: '错误堆栈信息'
 }
 
 // 搜索表单
@@ -289,6 +316,63 @@ const pagination = reactive({
 const operationLogList = ref([])
 const loginLogList = ref([])
 const inferenceLogList = ref([])
+
+// ================= 日志趋势迷你图配置 =================
+const getPast7Days = () => {
+  const dates = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    dates.push(`${d.getMonth() + 1}-${d.getDate()}`)
+  }
+  return dates
+}
+
+// 基础配置模板，隐藏大部分网格线，实现 Sparkline 极简风格
+const baseTrendOption = {
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: '1%', right: '1%', top: '10%', bottom: '5%', containLabel: true },
+  xAxis: { 
+    type: 'category', 
+    data: getPast7Days(), 
+    axisLine: { lineStyle: { color: '#e5e6eb' } }, 
+    axisTick: { show: false }, 
+    axisLabel: { color: '#86909c', fontSize: 11 } 
+  },
+  yAxis: { 
+    type: 'value', 
+    splitLine: { lineStyle: { type: 'dashed', color: '#f2f3f5' } }, 
+    axisLabel: { color: '#86909c', fontSize: 11, formatter: '{value}' } 
+  }
+}
+
+// 1. 操作日志趋势图（Mock 数据，可替换为 API 数据）
+const operationTrendOption = ref({
+  ...baseTrendOption,
+  series: [
+    { name: '成功操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#165DFF', borderRadius: [0, 0, 2, 2] }, data: [120, 132, 101, 134, 90, 230, 210] },
+    { name: '异常操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [5, 2, 1, 4, 2, 8, 3] }
+  ]
+})
+
+// 2. 登录日志趋势图
+const loginTrendOption = ref({
+  ...baseTrendOption,
+  series: [
+    { name: '成功登录', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#00B42A', borderRadius: [0, 0, 2, 2] }, data: [45, 52, 48, 60, 55, 78, 82] },
+    { name: '登录失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#FF7D00', borderRadius: [2, 2, 0, 0] }, data: [2, 4, 1, 3, 5, 2, 1] }
+  ]
+})
+
+// 3. 推理日志趋势图
+const inferenceTrendOption = ref({
+  ...baseTrendOption,
+  series: [
+    { name: '推理完成', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#722ED1', borderRadius: [0, 0, 2, 2] }, data: [320, 280, 410, 390, 450, 520, 600] },
+    { name: '推理失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [12, 8, 15, 5, 10, 14, 6] }
+  ]
+})
+// ====================================================
 
 // Tab切换
 const handleTabChange = () => {
@@ -407,13 +491,12 @@ const loadInferenceLogList = async () => {
   }
 }
 
-// 查看操作日志详情
+// 查看操作/推理日志详情
 const viewOperationDetail = (row) => {
   currentLog.value = row
   detailDrawerVisible.value = true
 }
 
-// 查看推理日志详情
 const viewInferenceDetail = (row) => {
   currentLog.value = row
   detailDrawerVisible.value = true
@@ -433,7 +516,6 @@ const exportLog = async (type) => {
     }
 
     const res = await exportLogs(type, params)
-    // 处理blob下载
     const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -458,25 +540,75 @@ onMounted(() => {
   width: 100%;
 }
 
+/* -----------------------------------
+   迷你趋势图区块样式
+------------------------------------ */
+.trend-container {
+  margin-bottom: 20px;
+  padding: 12px 20px;
+  background: #f7f8fa; /* 极浅灰底色，与表格区分 */
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.01);
+}
+
+.trend-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
 .export-section {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }
 
+/* -----------------------------------
+   抽屉详情与 JSON 代码块优化
+------------------------------------ */
+/* 去除 drawer body 的默认 padding 以便自定义结构 */
+:deep(.el-drawer__body) {
+  padding: 24px;
+  background-color: #fafafa;
+}
+
 .log-detail-content {
   width: 100%;
 }
 
+.custom-descriptions {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
 .json-block {
-  background: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', monospace;
+  background: #282c34; /* 暗色主题代码块，更像真实审计日志 */
+  color: #abb2bf;
+  padding: 16px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 12px;
   line-height: 1.6;
-  max-height: 300px;
+  max-height: 360px;
+  overflow-y: auto;
   overflow-x: auto;
   margin: 0;
+  border: 1px solid #1e2227;
+}
+/* 自定义滚动条，使 JSON 块滚动时更美观 */
+.json-block::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.json-block::-webkit-scrollbar-thumb {
+  background: #4b5363;
+  border-radius: 3px;
+}
+.json-block::-webkit-scrollbar-track {
+  background: #282c34;
 }
 </style>

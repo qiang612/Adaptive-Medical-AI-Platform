@@ -13,8 +13,19 @@
       </template>
     </PageHeader>
 
+    <div class="welcome-banner">
+      <div class="welcome-text">
+        <h2>{{ greeting }}，管理员，今日系统运行平稳！</h2>
+        <p>自适应AI医疗大模型正在为您提供高精度、高并发的辅助推理服务。</p>
+      </div>
+      <div class="health-score">
+        <div class="score-label">系统健康度</div>
+        <div class="score-value">98<span class="score-unit">/100</span></div>
+      </div>
+    </div>
+
     <el-row :gutter="20" class="stat-row" v-loading="loading">
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6">
         <div class="stat-card primary">
           <div class="stat-icon">
             <el-icon :size="32"><Document /></el-icon>
@@ -29,7 +40,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6">
         <div class="stat-card success">
           <div class="stat-icon">
             <el-icon :size="32"><UserFilled /></el-icon>
@@ -44,7 +55,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6">
         <div class="stat-card warning">
           <div class="stat-icon">
             <el-icon :size="32"><Box /></el-icon>
@@ -58,7 +69,7 @@
           </div>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="24" :sm="12" :md="12" :lg="6" :xl="6">
         <div class="stat-card danger">
           <div class="stat-icon">
             <el-icon :size="32"><Odometer /></el-icon>
@@ -76,7 +87,7 @@
     </el-row>
 
     <el-row :gutter="20" class="chart-row">
-      <el-col :span="16">
+      <el-col :xs="24" :lg="16">
         <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">诊断任务趋势</span>
@@ -85,7 +96,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :xs="24" :lg="8">
         <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">病种分布</span>
@@ -96,7 +107,7 @@
     </el-row>
 
     <el-row :gutter="20" class="chart-row">
-      <el-col :span="8">
+      <el-col :xs="24" :lg="12">
         <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">模型调用排行</span>
@@ -105,7 +116,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :xs="24" :lg="12">
         <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">用户活跃度TOP10</span>
@@ -113,8 +124,37 @@
           <v-chart :option="userActiveOption" style="height: 320px" autoresize />
         </el-card>
       </el-col>
+    </el-row>
 
-      <el-col :span="8">
+    <el-row :gutter="20" class="chart-row">
+      <el-col :xs="24" :lg="16">
+        <el-card class="common-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">最新任务</span>
+              <el-button type="primary" link size="small" @click="$router.push('/admin/tasks')">查看全部</el-button>
+            </div>
+          </template>
+          
+          <el-skeleton :rows="6" animated v-if="loading" />
+          
+          <el-empty description="暂无推理任务" :image-size="80" v-else-if="latestTasks.length === 0" />
+          
+          <el-table v-else :data="latestTasks" border stripe class="common-table" size="small" max-height="320">
+            <el-table-column prop="task_id" label="任务ID" width="180" show-overflow-tooltip />
+            <el-table-column prop="model_name" label="模型" min-width="120" />
+            <el-table-column prop="doctor_name" label="提交医生" width="120" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <StatusTag :status="row.status" size="small" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="创建时间" width="160" />
+          </el-table>
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :lg="8">
         <el-card class="common-card" v-loading="loading">
           <template #header>
             <span class="card-title">系统资源监控</span>
@@ -125,33 +165,7 @@
     </el-row>
 
     <el-row :gutter="20">
-      <el-col :span="12">
-        <el-card class="common-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">最新任务</span>
-              <el-button type="primary" link size="small" @click="$router.push('/admin/tasks')">查看全部</el-button>
-            </div>
-          </template>
-          
-          <el-skeleton :rows="5" animated v-if="loading" />
-          
-          <el-empty description="暂无推理任务" :image-size="80" v-else-if="latestTasks.length === 0" />
-          
-          <el-table v-else :data="latestTasks" border stripe class="common-table" size="small" max-height="300">
-            <el-table-column prop="task_id" label="任务ID" width="120" show-overflow-tooltip />
-            <el-table-column prop="model_name" label="模型" width="120" />
-            <el-table-column prop="status" label="状态" width="80">
-              <template #default="{ row }">
-                <StatusTag :status="row.status" size="small" />
-              </template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="创建时间" width="160" />
-          </el-table>
-        </el-card>
-      </el-col>
-
-      <el-col :span="12">
+      <el-col :span="24">
         <el-card class="common-card" shadow="hover">
           <template #header>
             <div class="card-header">
@@ -165,16 +179,17 @@
           <el-empty description="暂无新注册用户" :image-size="80" v-else-if="latestUsers.length === 0" />
 
           <el-table v-else :data="latestUsers" border stripe class="common-table" size="small" max-height="300">
-            <el-table-column prop="username" label="用户名" width="100" />
-            <el-table-column prop="full_name" label="姓名" width="100" />
-            <el-table-column prop="role" label="角色" width="80">
+            <el-table-column prop="username" label="用户名" width="150" />
+            <el-table-column prop="full_name" label="姓名" width="150" />
+            <el-table-column prop="department" label="科室" width="150" />
+            <el-table-column prop="role" label="角色" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.role === 'admin' ? 'danger' : 'primary'" size="small">
                   {{ row.role === 'admin' ? '管理员' : '医生' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="注册时间" width="160" />
+            <el-table-column prop="created_at" label="注册时间" min-width="160" />
           </el-table>
         </el-card>
       </el-col>
@@ -183,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -221,10 +236,18 @@ use([
 ])
 
 const timeRange = ref('today')
-const loading = ref(true) // 引入 loading 状态变量
+const loading = ref(true) 
 const stats = ref({})
 const latestTasks = ref([])
 const latestUsers = ref([])
+
+// 动态问候语
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '上午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
 
 // 诊断趋势图配置
 const trendOption = ref({
@@ -303,7 +326,7 @@ const diseaseOption = ref({
       name: '病种分布',
       type: 'pie',
       radius: ['40%', '70%'],
-      center: ['60%', '50%'],
+      center: ['65%', '50%'], // 调整饼图中心，避免和图例重叠
       itemStyle: {
         borderRadius: 8,
         borderColor: '#fff',
@@ -335,7 +358,7 @@ const modelCallOption = ref({
     data: [],
     axisLabel: {
       interval: 0,
-      fontSize: 11
+      fontSize: 12
     }
   },
   series: [
@@ -343,7 +366,7 @@ const modelCallOption = ref({
       name: '调用次数',
       type: 'bar',
       data: [],
-      barWidth: '50%',
+      barWidth: '40%',
       itemStyle: {
         color: {
           type: 'linear',
@@ -384,7 +407,7 @@ const userActiveOption = ref({
     data: [],
     axisLabel: {
       interval: 0,
-      fontSize: 11
+      fontSize: 12
     }
   },
   series: [
@@ -392,7 +415,7 @@ const userActiveOption = ref({
       name: '诊断次数',
       type: 'bar',
       data: [],
-      barWidth: '50%',
+      barWidth: '40%',
       itemStyle: {
         color: {
           type: 'linear',
@@ -420,15 +443,16 @@ const resourceOption = ref({
   },
   radar: {
     indicator: [
-      { name: 'CPU使用率', max: 100 },
-      { name: '内存使用率', max: 100 },
-      { name: '磁盘使用率', max: 100 },
-      { name: '网络带宽', max: 100 },
-      { name: 'GPU使用率', max: 100 },
-      { name: '队列负载', max: 100 }
+      { name: 'CPU', max: 100 },
+      { name: '内存', max: 100 },
+      { name: '磁盘', max: 100 },
+      { name: '网络', max: 100 },
+      { name: 'GPU', max: 100 },
+      { name: '队列', max: 100 }
     ],
     splitNumber: 4,
-    shape: 'circle'
+    shape: 'circle',
+    radius: '65%' // 适配 8 span 的宽度
   },
   series: [
     {
@@ -437,7 +461,7 @@ const resourceOption = ref({
       data: [
         {
           value: [],
-          name: '当前使用率',
+          name: '当前使用率(%)',
           areaStyle: {
             color: 'rgba(22, 93, 255, 0.3)'
           },
@@ -456,20 +480,17 @@ const resourceOption = ref({
 
 // 加载所有数据
 const loadAllData = async () => {
-  loading.value = true // 数据请求前开启 loading
+  loading.value = true
   try {
-    // 加载平台基础统计
     const platformRes = await getPlatformStats({ time_range: timeRange.value })
     stats.value = platformRes
 
-    // 加载趋势数据
     const trendRes = await getTrendStats({ time_range: timeRange.value })
     trendOption.value.xAxis.data = trendRes.xAxis
     trendOption.value.series[0].data = trendRes.total
     trendOption.value.series[1].data = trendRes.completed
     trendOption.value.series[2].data = trendRes.failed
 
-    // 病种分布数据
     diseaseOption.value.series[0].data = platformRes.disease_distribution || [
       { name: '宫颈癌', value: 1256 },
       { name: '冠心病', value: 987 },
@@ -479,29 +500,23 @@ const loadAllData = async () => {
       { name: '其他', value: 189 }
     ]
 
-    // 模型调用排行
     const modelRank = platformRes.model_rank || []
     modelCallOption.value.yAxis.data = modelRank.map(item => item.model_name).reverse()
     modelCallOption.value.series[0].data = modelRank.map(item => item.call_count).reverse()
 
-    // 用户活跃度
     const userRank = platformRes.user_rank || []
     userActiveOption.value.yAxis.data = userRank.map(item => item.full_name).reverse()
     userActiveOption.value.series[0].data = userRank.map(item => item.diagnosis_count).reverse()
 
-    // 系统资源
     resourceOption.value.series[0].data[0].value = platformRes.resource_usage || [45, 62, 38, 25, 78, 32]
 
-    // 最新任务
     latestTasks.value = platformRes.latest_tasks || []
-
-    // 最新用户
     latestUsers.value = platformRes.latest_users || []
 
   } catch (error) {
     console.error('加载看板数据失败', error)
   } finally {
-    loading.value = false // 数据请求结束后关闭 loading
+    loading.value = false
   }
 }
 
@@ -515,8 +530,60 @@ onMounted(() => {
   width: 100%;
 }
 
+/* 新增 Welcome Banner 样式 */
+.welcome-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  background: linear-gradient(135deg, #e8f0ff 0%, #f4f8ff 100%);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.05);
+}
+
+.welcome-text h2 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+.welcome-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #4e5969;
+}
+
+.health-score {
+  text-align: right;
+  background: #ffffff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.score-label {
+  font-size: 13px;
+  color: #86909c;
+  margin-bottom: 4px;
+}
+
+.score-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #00b42a;
+  line-height: 1;
+}
+
+.score-unit {
+  font-size: 14px;
+  color: #86909c;
+  margin-left: 2px;
+}
+
 .stat-row {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
@@ -527,6 +594,7 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
+  margin-bottom: 20px; /* 为响应式折叠提供底部间距 */
 }
 
 .stat-card:hover {
@@ -601,12 +669,29 @@ onMounted(() => {
 }
 
 .chart-row {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 适配移动端 Welcome Banner */
+@media screen and (max-width: 768px) {
+  .welcome-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .health-score {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+  }
 }
 </style>

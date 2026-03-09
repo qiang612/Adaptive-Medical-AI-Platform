@@ -5,14 +5,43 @@
       description="管理平台所有用户账户，支持用户增删改查、角色分配、密码重置、状态管理"
     >
       <template #extra>
-        <el-button type="primary" @click="openUserDialog">
+        <el-button type="primary" @click="openUserDialog()">
           <el-icon><Plus /></el-icon>
           新增用户
         </el-button>
       </template>
     </PageHeader>
 
-    <!-- 搜索筛选区 -->
+    <el-row :gutter="20" class="mini-stats-row">
+      <el-col :xs="24" :sm="8">
+        <div class="mini-stat-card bg-blue">
+          <div class="stat-icon"><el-icon><User /></el-icon></div>
+          <div class="stat-info">
+            <div class="stat-title">总用户数</div>
+            <div class="stat-value">{{ pagination.total || 0 }}</div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :sm="8">
+        <div class="mini-stat-card bg-green">
+          <div class="stat-icon"><el-icon><Monitor /></el-icon></div>
+          <div class="stat-info">
+            <div class="stat-title">今日活跃</div>
+            <div class="stat-value">{{ userStats.activeToday }}</div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :sm="8">
+        <div class="mini-stat-card bg-orange">
+          <div class="stat-icon"><el-icon><DataLine /></el-icon></div>
+          <div class="stat-info">
+            <div class="stat-title">今日新增</div>
+            <div class="stat-value">{{ userStats.newToday }}</div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
     <SearchBar
       :show-keyword="true"
       keyword-placeholder="搜索用户名、姓名、手机号、邮箱"
@@ -43,7 +72,6 @@
       </el-form-item>
     </SearchBar>
 
-    <!-- 用户列表 -->
     <el-card class="common-card">
       <el-table :data="userList" border class="common-table" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
@@ -122,7 +150,6 @@
       />
     </el-card>
 
-    <!-- 用户编辑对话框 -->
     <el-dialog v-model="userDialogVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="700px" :close-on-click-modal="false">
       <el-form :model="userForm" :rules="userRules" ref="userFormRef" label-width="120px" class="common-form">
         <el-row :gutter="20">
@@ -204,7 +231,6 @@
       </template>
     </el-dialog>
 
-    <!-- 密码重置对话框 -->
     <el-dialog v-model="passwordDialogVisible" title="重置密码" width="500px">
       <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="120px" class="common-form">
         <el-form-item label="用户名">
@@ -223,37 +249,40 @@
       </template>
     </el-dialog>
 
-    <!-- 用户详情抽屉 -->
-    <el-drawer v-model="detailDrawerVisible" title="用户详情" size="40%">
+    <el-drawer v-model="detailDrawerVisible" title="用户详情" size="40%" class="custom-drawer">
       <div v-if="currentUser" class="user-detail-content">
-        <div class="profile-section">
-          <el-avatar :size="80" :src="currentUser.avatar">
-            {{ currentUser.full_name?.charAt(0) || currentUser.username?.charAt(0) }}
-          </el-avatar>
-          <div class="profile-info">
-            <h3>{{ currentUser.full_name || currentUser.username }}</h3>
-            <el-tag :type="currentUser.role === 'admin' ? 'danger' : 'primary'" size="large">
-              {{ currentUser.role === 'admin' ? '管理员' : currentUser.role === 'doctor' ? '医生' : '实习生' }}
-            </el-tag>
+        <div class="profile-header">
+          <div class="profile-cover"></div>
+          <div class="profile-avatar-wrap">
+            <el-avatar :size="84" :src="currentUser.avatar" class="profile-avatar">
+              {{ currentUser.full_name?.charAt(0) || currentUser.username?.charAt(0) }}
+            </el-avatar>
           </div>
         </div>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="用户名">{{ currentUser.username }}</el-descriptions-item>
-          <el-descriptions-item label="姓名">{{ currentUser.full_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="部门">{{ currentUser.department || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="职称">{{ currentUser.title || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{ currentUser.phone || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="邮箱">{{ currentUser.email || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="currentUser.is_active ? 'success' : 'danger'" size="small">
-              {{ currentUser.is_active ? '启用' : '禁用' }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentUser.created_at }}</el-descriptions-item>
-          <el-descriptions-item label="最后登录">{{ currentUser.last_login_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="诊断次数">{{ currentUser.diagnosis_count || 0 }}</el-descriptions-item>
-          <el-descriptions-item label="备注">{{ currentUser.remark || '-' }}</el-descriptions-item>
-        </el-descriptions>
+        
+        <div class="profile-info-center">
+          <h3>{{ currentUser.full_name || currentUser.username }}</h3>
+          <div class="profile-meta">@{{ currentUser.username }}</div>
+          <el-tag :type="currentUser.role === 'admin' ? 'danger' : currentUser.role === 'doctor' ? 'primary' : 'info'" size="small" effect="light" class="role-tag">
+            {{ currentUser.role === 'admin' ? '管理员' : currentUser.role === 'doctor' ? '医生' : '实习生' }}
+          </el-tag>
+          <el-tag v-if="!currentUser.is_active" type="info" size="small" effect="dark" style="margin-left: 8px;">已禁用</el-tag>
+        </div>
+
+        <div class="profile-body">
+          <el-descriptions :column="1" border class="custom-descriptions">
+            <el-descriptions-item label="部门">{{ currentUser.department || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="职称">{{ currentUser.title || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="手机号">{{ currentUser.phone || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="邮箱">{{ currentUser.email || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ currentUser.created_at }}</el-descriptions-item>
+            <el-descriptions-item label="最后登录">{{ currentUser.last_login_at || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="累计诊断次数">
+              <span class="highlight-data">{{ currentUser.diagnosis_count || 0 }} 次</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="备注">{{ currentUser.remark || '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
       </div>
     </el-drawer>
   </div>
@@ -262,6 +291,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, User, Monitor, DataLine } from '@element-plus/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import Pagination from '@/components/Pagination.vue'
@@ -278,6 +308,12 @@ const passwordSaving = ref(false)
 const userFormRef = ref(null)
 const passwordFormRef = ref(null)
 const currentUser = ref(null)
+
+// 模拟的顶栏聚合数据（实际中可以在 loadUserList 中一起获取或单调一个统计接口）
+const userStats = reactive({
+  activeToday: 34,
+  newToday: 5
+})
 
 // 搜索表单
 const searchForm = reactive({
@@ -527,6 +563,68 @@ onMounted(() => {
   width: 100%;
 }
 
+/* -----------------------
+   顶部微型指标卡
+----------------------- */
+.mini-stats-row {
+  margin-bottom: 24px;
+}
+
+.mini-stat-card {
+  display: flex;
+  align-items: center;
+  padding: 24px 30px;
+  border-radius: 12px;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+  margin-bottom: 12px; /* 适配移动端堆叠 */
+}
+
+.mini-stat-card:hover {
+  transform: translateY(-3px);
+}
+
+.bg-blue {
+  background: linear-gradient(135deg, #7ba8ff 0%, #165DFF 100%);
+}
+
+.bg-green {
+  background: linear-gradient(135deg, #6ae086 0%, #00B42A 100%);
+}
+
+.bg-orange {
+  background: linear-gradient(135deg, #ffb86c 0%, #FF7D00 100%);
+}
+
+.stat-icon {
+  font-size: 38px;
+  margin-right: 20px;
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.2);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-title {
+  font-size: 15px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+/* -----------------------
+   表格内用户信息
+----------------------- */
 .user-info-cell {
   display: flex;
   align-items: center;
@@ -550,23 +648,80 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
+/* -----------------------
+   抽屉 - 社交化主页设计
+----------------------- */
+/* 去除默认 padding，让背景铺满 */
+:deep(.el-drawer__body) {
+  padding: 0;
+}
+
 .user-detail-content {
   width: 100%;
 }
 
-.profile-section {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-light);
+.profile-header {
+  position: relative;
+  margin-bottom: 50px; /* 给悬浮头像留出空间 */
 }
 
-.profile-info h3 {
-  font-size: 20px;
+.profile-cover {
+  height: 140px;
+  /* 使用 CSS 绘制带医疗元素的几何图形背景，也可替换为真实图片URL */
+  background: linear-gradient(135deg, rgba(22,93,255,0.8) 0%, rgba(64,128,255,0.9) 100%),
+              url('data:image/svg+xml;utf8,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M10 50h30l10-30 20 60 10-30h20" stroke="white" stroke-width="2" fill="none" opacity="0.2"/></svg>') center/cover;
+}
+
+.profile-avatar-wrap {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.profile-avatar {
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 28px;
+  background-color: var(--primary-color);
+}
+
+.profile-info-center {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 0 20px;
+}
+
+.profile-info-center h3 {
+  margin: 0 0 6px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 12px;
+}
+
+.profile-meta {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.role-tag {
+  font-weight: bold;
+}
+
+.profile-body {
+  padding: 0 30px 30px;
+}
+
+.custom-descriptions {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+
+.highlight-data {
+  color: var(--primary-color);
+  font-weight: bold;
+  font-size: 15px;
 }
 </style>
