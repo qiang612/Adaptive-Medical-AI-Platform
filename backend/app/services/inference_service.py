@@ -1,20 +1,20 @@
 # backend/app/services/inference_service.py
+
 from celery import shared_task
-from app.core.celery_app import celery_app
 from app.core.config import settings
 import importlib
 import traceback
 
-
-# 🔥 移除顶部的 from app.services.task_service import task_service 🔥
+# 🔥 移除顶部的从 task_service 和 database 导入，避免循环依赖 🔥
 
 class InferenceService:
     def run_inference(self, task_id: int):
         """执行推理任务"""
-        # 🔥 延迟导入：把导入移到函数内部 🔥
+        # 🔥 延迟导入：把导入移到函数内部，只有当真正执行任务时才加载 🔥
         from app.services.task_service import task_service
         from app.core.database import SessionLocal
 
+        # 每次执行异步任务时，由于是在独立的 Worker 进程中，需要重新创建一个独立的数据库会话
         db = SessionLocal()
         try:
             # 获取任务信息
@@ -22,7 +22,7 @@ class InferenceService:
             if not task:
                 return
 
-            # 更新任务状态为处理中
+            # 更新任务状态为处理中 (processing)
             task_service.update_task_status(db, task_id=task_id, status="processing")
 
             # 获取模型信息
@@ -35,20 +35,21 @@ class InferenceService:
                 )
                 return
 
-            # 动态加载适配器
+            # 动态加载并实例化 AI 适配器 (如 YOLOCervicalAdapter)
             try:
+                # 假设你的数据库中 adapter_class 存的是类似 "app.ai_adapters.yolo_cervical_adapter.YOLOCervicalAdapter"
                 module_name, class_name = model.adapter_class.rsplit('.', 1)
                 module = importlib.import_module(module_name)
                 adapter_class = getattr(module, class_name)
                 adapter = adapter_class()
 
-                # 执行推理
-                result = adapter.run(
+                # 执行真正的推理过程
+                result = adapter.process(
                     input_data=task.input_data or {},
                     file_paths=task.file_paths or []
                 )
 
-                # 更新任务结果
+                # 推理成功，更新任务状态为已完成 (completed) 并存入结果
                 task_service.update_task_result(
                     db, task_id=task_id,
                     status="completed",
@@ -56,7 +57,7 @@ class InferenceService:
                 )
 
             except Exception as e:
-                # 捕获推理过程中的异常
+                # 捕获推理过程中的算法异常或路径错误
                 error_msg = f"推理失败: {str(e)}\n{traceback.format_exc()}"
                 task_service.update_task_status(
                     db, task_id=task_id,
@@ -64,14 +65,21 @@ class InferenceService:
                     error_msg=error_msg
                 )
         finally:
+            # 无论成功还是失败，都必须关闭数据库会话，防止连接池耗尽
             db.close()
 
-
-# 创建单例
+# 创建单例实例，供 FastAPI 路由或本地其他地方调用
 inference_service = InferenceService()
 
 
-# Celery 任务
-@celery_app.task(bind=True, max_retries=3)
+# ==========================================
+# Celery 异步任务定义区
+# ==========================================
+# 🚀 关键修复：使用 shared_task 替代 celery_app.task
+@shared_task(bind=True, name="run_inference_task", max_retries=3)
 def run_inference_task(self, task_id: int):
+    """
+    接收来自 FastAPI 的任务派发。
+    因为是在独立进程运行，所以只传递 task_id，其余数据全部在 run_inference 中现查库获取。
+    """
     inference_service.run_inference(task_id)
