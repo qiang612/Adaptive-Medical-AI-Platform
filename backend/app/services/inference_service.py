@@ -38,7 +38,7 @@ class InferenceService:
             # 动态加载并实例化 AI 适配器 (如 YOLOCervicalAdapter)
             try:
                 # 假设你的数据库中 adapter_class 存的是类似 "app.ai_adapters.yolo_cervical_adapter.YOLOCervicalAdapter"
-                module_name, class_name = model.adapter_class.rsplit('.', 1)
+                module_name, class_name = model.model_path.rsplit('.', 1)
                 module = importlib.import_module(module_name)
                 adapter_class = getattr(module, class_name)
                 adapter = adapter_class()

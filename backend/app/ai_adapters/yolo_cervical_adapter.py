@@ -10,7 +10,7 @@ from app.core.config import settings
 class YoloCervicalAdapter(BaseAIAdapter):
     def __init__(self):
         # 加载真实的YOLOv8模型
-        model_path = os.path.join(settings.WEIGHTS_DIR, "yolov8n.pt")
+        model_path = os.path.join(settings.WEIGHTS_DIR, "yolov8_cervical.pt")
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"模型权重未找到: {model_path}，请下载并放入weights目录")
         self.model = YOLO(model_path)
