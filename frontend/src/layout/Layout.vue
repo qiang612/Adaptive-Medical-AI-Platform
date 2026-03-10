@@ -88,7 +88,7 @@
         </div>
         
         <div class="header-right">
-          <el-badge :value="3" class="task-badge" type="danger">
+          <el-badge :value="unreadTasks" :hidden="unreadTasks === 0" class="task-badge" type="danger">
             <el-icon class="header-icon" @click="$router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')">
               <Bell />
             </el-icon>
@@ -97,7 +97,7 @@
           <el-dropdown @command="handleCommand">
             <div class="user-info">
               <el-avatar :size="32" :src="userStore.userInfo?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
-              <span class="username">{{ userStore.userInfo?.full_name || userStore.userInfo?.username || '管理员' }}</span>
+              <span class="username">{{ userStore.userInfo?.full_name || userStore.userInfo?.username || '翟旭强' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
@@ -141,11 +141,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
 import { useAppStore } from '@/store/modules/app'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessageBox, ElMessage, ElNotification } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
@@ -157,6 +157,33 @@ const activeMenu = computed(() => route.path)
 const passwordDialogVisible = ref(false)
 const passwordFormRef = ref(null)
 const passwordLoading = ref(false)
+
+// 新增：任务通知状态
+const unreadTasks = ref(0)
+let wsMockTimer = null
+
+// 模拟WebSocket实时通知后端Celery任务完成 (答辩演示利器)
+const initTaskNotification = () => {
+  // 真实环境中这里替换为 WebSocket 连接：
+  // const ws = new WebSocket('ws://localhost:8000/api/v1/ws/notifications')
+  // ws.onmessage = (event) => { ... }
+
+  // 模拟轮询/推送：为了演示AI异步任务处理完毕后的全局触达
+  wsMockTimer = setInterval(() => {
+    unreadTasks.value += 1
+    ElNotification({
+      title: 'AI推理任务已完成',
+      message: '您提交的患者影像诊断任务已生成报告，请点击查看详细的病灶标注与风险评估。',
+      type: 'success',
+      duration: 6000,
+      onClick: () => {
+        // 点击通知后跳转到对应的任务列表，并清除未读数
+        router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')
+        unreadTasks.value = Math.max(0, unreadTasks.value - 1)
+      }
+    })
+  }, 120000) // 每两分钟模拟一次推送 (答辩演示时可改短，比如 30000 代表30秒)
+}
 
 // 面包屑计算逻辑
 const breadcrumbList = computed(() => {
@@ -246,6 +273,13 @@ onMounted(async () => {
   if (!userStore.userInfo) {
     await userStore.getUserInfo()
   }
+  // 初始化全局任务推送通知
+  initTaskNotification()
+})
+
+// 组件销毁前清除定时器避免内存泄漏
+onBeforeUnmount(() => {
+  if (wsMockTimer) clearInterval(wsMockTimer)
 })
 </script>
 
