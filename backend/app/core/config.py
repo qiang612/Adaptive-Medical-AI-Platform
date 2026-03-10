@@ -8,7 +8,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # ================= 数据库配置 =================
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./medical_ai_platform.db")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+pymysql://root:123456@127.0.0.1:3306/medical_ai_platform")
 
     # ================= 安全与认证配置 =================
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")

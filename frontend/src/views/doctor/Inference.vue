@@ -311,7 +311,7 @@ const modelGroup = computed(() => {
     if (!group[model.model_type]) {
       group[model.model_type] = {
         type: model.model_type,
-        label: model.model_type === '单模态' ? '单模态专病模型 (仅需影像)' : '多模态联合诊断模型 (影像+临床指标)',
+        label: model.model_type.includes('单模态') ? '单模态专病模型 (仅需影像)' : '多模态联合诊断模型 (影像+临床指标)',
         models: []
       }
     }

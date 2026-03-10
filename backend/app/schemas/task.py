@@ -1,3 +1,4 @@
+# backend/app/schemas/task.py
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -16,6 +17,7 @@ class TaskResponse(TaskBase):
     id: int
     task_id: str
     user_id: int
+    model_name: Optional[str] = "智能诊断模型" # 提供一个兜底名称，保证前端不显示空
     status: TaskStatus
     result: Optional[Dict[str, Any]] = None
     error_msg: Optional[str] = None

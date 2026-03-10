@@ -2,7 +2,7 @@ import request from './index'
 
 // 获取激活的模型列表
 export function getActiveModels() {
-  return request.get('/models/active')
+  return request.get('/models/')
 }
 
 // 获取模型列表（分页）

@@ -10,9 +10,9 @@ from datetime import datetime
 
 # 手动配置数据库连接（避免依赖其他文件）
 # 如果你用 MySQL，替换为你的连接串：
-# DATABASE_URL = "mysql+pymysql://root:123456@localhost:3306/medical_ai_platform?charset=utf8mb4"
+DATABASE_URL = "mysql+pymysql://root:qiang1026@localhost:3306/medical_ai_platform?charset=utf8mb4"
 # 如果你用 SQLite：
-DATABASE_URL = "sqlite:///./medical_ai_platform.db"
+# DATABASE_URL = "sqlite:///./medical_ai_platform.db"
 
 engine = create_engine(
     DATABASE_URL,
