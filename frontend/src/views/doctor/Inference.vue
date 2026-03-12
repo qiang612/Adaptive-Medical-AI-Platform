@@ -122,9 +122,9 @@
               </div>
             </div>
 
-            <el-divider v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" border-style="dashed" />
+            <el-divider v-if="selectedModel && selectedModel.input_schema && Object.keys(selectedModel.input_schema || {}).length > 0" border-style="dashed" />
 
-            <div v-if="selectedModel.input_schema && selectedModel.input_schema.length > 0" class="input-section">
+            <div v-if="selectedModel && selectedModel.input_schema && Object.keys(selectedModel.input_schema || {}).length > 0" class="input-section">
               <div class="section-title">
                 <span class="step-num">2</span> 补充临床与检验特征 <el-tag size="small" type="warning" class="ml-2">多模态所需</el-tag>
               </div>
@@ -134,7 +134,7 @@
               </div>
             </div>
             
-            <div v-if="selectedModel.model_type === '多模态'" class="input-section" style="margin-top: 20px;">
+            <div v-if="selectedModel.model_type === '多模态混合'" class="input-section" style="margin-top: 20px;">
                <div class="section-title">
                 <span class="step-num">3</span> 批量检验数据上传 (可选)
               </div>
@@ -257,7 +257,12 @@
                 <span v-if="item.status === 'pending'" class="text-warning"><el-icon class="is-loading"><Loading /></el-icon> 等待分析</span>
                 <span v-else-if="item.status === 'processing'" class="text-primary"><el-icon class="is-loading"><Loading /></el-icon> AI 分析中...</span>
                 <span v-else-if="item.status === 'completed'" class="text-success cursor-pointer" @click="viewTaskDetail(item)">报告已生成，点击查看 <el-icon><ArrowRight /></el-icon></span>
-                <span v-else class="text-danger">分析失败，请重试</span>
+                <span v-else class="text-danger d-flex-center">
+                  分析失败
+                  <el-tooltip v-if="item.error_msg" :content="item.error_msg" placement="top">
+                    <el-icon class="ml-1 cursor-pointer"><InfoFilled /></el-icon>
+                  </el-tooltip>
+                </span>
               </div>
             </el-timeline-item>
           </el-timeline>
@@ -269,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue' // ✅ 引入 onUnmounted
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getActiveModels } from '@/api/model'
@@ -287,10 +292,16 @@ const fileList = ref([])      // 影像文件
 const extraFileList = ref([]) // Excel等附加文件
 const submitting = ref(false)
 const recentTasks = ref([])
+let pollTimer = null // ✅ 用于保存轮询定时器
 
 // 影像预览专用状态
 const imageLoading = ref(false)
 const currentImage = ref(null)
+
+const getToday = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 // 表单数据
 const taskForm = reactive({
@@ -300,7 +311,7 @@ const taskForm = reactive({
   gender: '',
   age: null,
   phone: '',
-  checkDate: '',
+  checkDate: getToday(),
   inputData: {}
 })
 
@@ -333,7 +344,18 @@ const isFavorite = computed(() => {
 
 const loadModels = async () => {
   try {
-    models.value = await getActiveModels()
+    const res = await getActiveModels()
+    // 解析 JSON
+    models.value = res.map(model => {
+      if (typeof model.input_schema === 'string') {
+        try {
+          model.input_schema = JSON.parse(model.input_schema)
+        } catch (e) {
+          model.input_schema = {}
+        }
+      }
+      return model
+    })
   } catch (error) {
     console.error('加载模型列表失败', error)
   }
@@ -348,10 +370,37 @@ const loadRecentTasks = async () => {
   }
 }
 
+// ✅ 轮询刷新机制：如果有正在处理中的任务，每3秒去查一次状态
+const startPolling = () => {
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = setInterval(async () => {
+    // 检查是否还有 pending 或 processing 状态的任务
+    const hasProcessing = recentTasks.value.some(t => t.status === 'pending' || t.status === 'processing')
+    if (hasProcessing) {
+      await loadRecentTasks()
+    } else {
+      clearInterval(pollTimer) // 没任务了就停止刷新节省性能
+    }
+  }, 3000)
+}
+
 // 核心自适应逻辑：模型切换时清空旧数据
 const onModelChange = (modelId) => {
+  if (!modelId) {
+    selectedModel.value = null
+    taskForm.inputData = {}
+    clearImage() // ✅ 清空图片
+    extraFileList.value = [] // ✅ 清空附件
+    return
+  }
+
   selectedModel.value = models.value.find(m => m.id === modelId)
   taskForm.inputData = {} // 重置特征输入
+  
+  // ✅ 核心修复：无缝切换时，强制清空之前残留的图像和文件，让输入框恢复干净
+  currentImage.value = null
+  fileList.value = []
+  extraFileList.value = []
 }
 
 // 影像文件处理
@@ -382,13 +431,8 @@ const clearImage = () => {
   fileList.value = [] 
 }
 
-// 附加文件处理 (Excel)
-const handleExtraFileChange = (uploadFile, uploadFiles) => {
-  extraFileList.value = uploadFiles
-}
-const handleExtraFileRemove = (file, uploadFiles) => {
-  extraFileList.value = uploadFiles
-}
+const handleExtraFileChange = (uploadFile, uploadFiles) => { extraFileList.value = uploadFiles }
+const handleExtraFileRemove = (file, uploadFiles) => { extraFileList.value = uploadFiles }
 
 const toggleFavorite = () => {
   if (!selectedModel.value) return
@@ -426,6 +470,7 @@ const resetForm = () => {
       taskForm[key] = ''
     }
   })
+  taskForm.checkDate = getToday()
   fileList.value = []
   extraFileList.value = []
   currentImage.value = null
@@ -445,32 +490,42 @@ const handleSubmit = async () => {
     const formData = new FormData()
     formData.append('model_id', taskForm.modelId)
     
+    // 映射表
+    const fieldMap = {
+      patientName: 'patient_name',
+      patientId: 'patient_id',
+      checkDate: 'check_date',
+      phone: 'phone',
+      gender: 'gender',
+      age: 'age'
+    }
+
     // 附加患者基础信息
     Object.keys(taskForm).forEach(key => {
       if (taskForm[key] !== null && taskForm[key] !== '' && key !== 'inputData' && key !== 'modelId') {
-        formData.append(key, taskForm[key])
+        const backendKey = fieldMap[key] || key
+        formData.append(backendKey, taskForm[key])
       }
     })
     
-    // 附加动态 Schema 数据 (临床特征)
     if (Object.keys(taskForm.inputData).length) {
       formData.append('input_data', JSON.stringify(taskForm.inputData))
     }
     
-    // 附加所有文件
     const allFiles = [...fileList.value, ...extraFileList.value]
     allFiles.forEach(file => {
       if (file.raw) formData.append('files', file.raw)
     })
 
-    // 提交任务到后端
     await createTask(formData)
     
     ElMessage.success({
       message: '诊断请求已提交，AI 正在后台为您分析，请稍后查看结果。',
       duration: 4000
     })
-    loadRecentTasks() // 刷新右侧记录列表
+    
+    await loadRecentTasks() 
+    startPolling() // ✅ 提交任务后立刻启动自动刷新
 
   } catch (error) {
     ElMessage.error('请求提交失败，请检查网络或联系管理员')
@@ -489,22 +544,32 @@ const goToTaskList = () => {
 
 onMounted(async () => {
   await loadModels()
-  loadRecentTasks()
+  await loadRecentTasks()
+  startPolling() // 初始化挂载时如果存在任务，也开启轮询
   
-  // 处理从患者列表传递过来的快捷发起诊断
   if (route.query.patient_id) {
     taskForm.patientId = route.query.patient_id
-    // 实际项目中这里可以调用API根据ID带出患者姓名、年龄等信息
   } else {
-    // 否则加载本地草稿
     const draft = localStorage.getItem('diagnosis_draft')
     if (draft) {
-      Object.assign(taskForm, JSON.parse(draft))
+      const parsedDraft = JSON.parse(draft)
+      Object.assign(taskForm, parsedDraft)
+      
+      // ✅ 修复：如果草稿中存的日期为空，强制补全为今天
+      if (!taskForm.checkDate) {
+        taskForm.checkDate = getToday()
+      }
+      
       if (taskForm.modelId) {
         onModelChange(taskForm.modelId)
       }
     }
   }
+})
+
+// 组件销毁时清除定时器，避免内存泄漏
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
@@ -548,7 +613,9 @@ onMounted(async () => {
   color: #fff; border-radius: 50%; font-size: 12px;
 }
 .upload-tip { font-size: 12px; color: var(--text-secondary); font-weight: normal;}
+.ml-1 { margin-left: 4px; }
 .ml-2 { margin-left: 8px; }
+.d-flex-center { display: inline-flex; align-items: center; }
 
 /* 影像预览区深度定制 */
 .canvas-container {
