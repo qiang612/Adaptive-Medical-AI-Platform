@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import engine, SessionLocal
+from app.core.celery_app import celery
 # 🔥 关键：导入模型的 Base（已包含所有6张表的定义）
 from app.models import Base
 import os
@@ -78,7 +79,7 @@ app.include_router(api_router)
 
 @app.get("/")
 def root():
-    return {"message": "医疗AI模型接入平台服务已启动（数据库：medical_ai_db）"}
+    return {"message": f"医疗AI模型接入平台服务已启动（数据库：medical_ai_platform）"}
 
 # 上传测试接口（保留）
 @app.post("/upload-test")

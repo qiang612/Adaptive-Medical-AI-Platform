@@ -178,7 +178,7 @@
               >
                 <span style="float: left">{{ model.model_name }}</span>
                 <span style="float: right; color: var(--el-text-color-secondary); font-size: 12px">
-                  v{{ model.model_version }}
+                  {{ model.model_version }}
                 </span>
               </el-option>
             </el-option-group>

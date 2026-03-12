@@ -1,7 +1,12 @@
 # backend/init_models.py
+import sys
+import os
+
+# 将项目根目录添加到 Python 路径中，避免 ModuleNotFoundError
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from app.core.database import SessionLocal
 from app.models.model_registry import ModelRegistry
-import json
 
 def init_ai_models():
     db = SessionLocal()
@@ -20,7 +25,8 @@ def init_ai_models():
             model_version="v1.0",
             # 利用 model_path 字段存储适配器反射路径
             model_path="app.ai_adapters.lung_nodule_adapter.LungNoduleAdapter",
-            input_schema=json.dumps({
+            # 👇 去掉了 json.dumps，直接使用字典
+            input_schema={
                 "type": "object",
                 "properties": {
                     "file_upload": {
@@ -29,8 +35,8 @@ def init_ai_models():
                         "description": "请上传患者肺部CT切片影像 (.jpg/.png)"
                     }
                 }
-            }),
-            output_schema=json.dumps({}),  # 必填项，先给个空JSON对象
+            },
+            output_schema={},  # 必填项，直接给空字典
             accuracy=0.85,
             description="用于检测CT影像中的疑似肺结节位置",
             is_active=True
@@ -44,7 +50,8 @@ def init_ai_models():
             task_type="目标检测",
             model_version="v1.0",
             model_path="app.ai_adapters.yolo_cervical_adapter.YoloCervicalAdapter",
-            input_schema=json.dumps({
+            # 👇 去掉了 json.dumps，直接使用字典
+            input_schema={
                 "type": "object",
                 "properties": {
                     "file_upload": {
@@ -53,8 +60,8 @@ def init_ai_models():
                         "description": "请上传显微镜下的宫颈细胞涂片影像"
                     }
                 }
-            }),
-            output_schema=json.dumps({}),
+            },
+            output_schema={}, # 直接给空字典
             accuracy=0.92,
             description="用于识别显微镜影像中的异常宫颈细胞",
             is_active=True
@@ -68,7 +75,8 @@ def init_ai_models():
             task_type="综合评估",
             model_version="v2.0",
             model_path="app.ai_adapters.chd_multimodal_adapter.CHDMultimodalAdapter",
-            input_schema=json.dumps({
+            # 👇 去掉了 json.dumps，直接使用字典
+            input_schema={
                 "type": "object",
                 "properties": {
                     "file_upload": {
@@ -82,8 +90,8 @@ def init_ai_models():
                     "glucose": {"type": "number", "title": "空腹血糖 (mmol/L)"}
                 },
                 "required": ["age", "sbp", "cholesterol", "glucose"]
-            }),
-            output_schema=json.dumps({}),
+            },
+            output_schema={}, # 直接给空字典
             accuracy=0.88,
             description="结合冠脉CT影像与患者体征数据的综合高危风险评估",
             is_active=True
