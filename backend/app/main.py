@@ -6,6 +6,7 @@ from app.core.database import engine, SessionLocal
 from app.core.celery_app import celery
 # 🔥 关键：导入模型的 Base（已包含所有6张表的定义）
 from app.models import Base
+from fastapi.staticfiles import StaticFiles
 import os
 
 # ===================== 核心建表逻辑（修正后） =====================
@@ -66,7 +67,7 @@ app = FastAPI(
     description="仅支持医生+管理员的多模型异步推理平台",
     version="1.0.0"
 )
-
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
