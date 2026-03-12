@@ -250,7 +250,7 @@
               size="large"
             >
               <div class="timeline-content">
-                <span class="task-model">{{ item.model_name }}</span>
+                <span class="task-model">{{ models.find(m => m.id == item.model_id)?.model_name || item.model_name }}</span>
                 <span class="task-patient">患者: {{ item.patient_name || '匿名' }}</span>
               </div>
               <div class="timeline-status">
@@ -347,6 +347,7 @@ const loadModels = async () => {
     const res = await getActiveModels()
     // 解析 JSON
     models.value = res.map(model => {
+      model.id = Number(model.id) // 🔴 核心修复1：强制将从后端获取的 id 转换为数字
       if (typeof model.input_schema === 'string') {
         try {
           model.input_schema = JSON.parse(model.input_schema)
@@ -385,24 +386,28 @@ const startPolling = () => {
 }
 
 // 核心自适应逻辑：模型切换时清空旧数据
+// 核心自适应逻辑：模型切换时清空旧数据
 const onModelChange = (modelId) => {
-  if (!modelId) {
-    selectedModel.value = null
-    taskForm.inputData = {}
-    clearImage() // ✅ 清空图片
-    extraFileList.value = [] // ✅ 清空附件
-    return
-  }
-
-  selectedModel.value = models.value.find(m => m.id === modelId)
-  taskForm.inputData = {} // 重置特征输入
-  
-  // ✅ 核心修复：无缝切换时，强制清空之前残留的图像和文件，让输入框恢复干净
+  // 1. 无论如何，第一步先彻底清空当前所有状态（这相当于代码自动帮你点了那个 '×'）
+  selectedModel.value = null
+  taskForm.inputData = {}
   currentImage.value = null
   fileList.value = []
   extraFileList.value = []
-}
 
+  // 2. 如果用户真的是点了 '×' 清空，执行到这里就结束了
+  if (!modelId) return
+
+  // 3. 延迟一小会儿再加载新模型数据
+  // 这一步是灵魂：强制让 Vue 先把旧模型的表单从页面上卸载干净，再加载新模型
+  // 彻底防止新旧表单状态打架导致的下拉框卡死不刷新
+  setTimeout(() => {
+    const targetModel = models.value.find(m => String(m.id) === String(modelId))
+    if (targetModel) {
+      selectedModel.value = targetModel
+    }
+  }, 50) // 50毫秒的延迟用户毫无察觉，但足够 Vue 完成底层 DOM 的清理
+}
 // 影像文件处理
 const handleFileChange = (uploadFile, uploadFiles) => {
   fileList.value = uploadFiles
