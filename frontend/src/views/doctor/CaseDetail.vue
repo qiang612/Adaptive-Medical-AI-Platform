@@ -8,9 +8,7 @@
     </div>
 
     <el-row :gutter="20">
-      <!-- 左侧主内容区 -->
       <el-col :span="18">
-        <!-- 案例头部 -->
         <el-card class="common-card detail-header-card">
           <div class="detail-header">
             <div class="header-left">
@@ -24,11 +22,11 @@
               <div class="case-meta">
                 <span class="author">
                   <el-avatar :size="28" :src="caseDetail.author_avatar" />
-                  {{ caseDetail.author_name }}
+                  {{ caseDetail.author_name || '佚名医生' }}
                 </span>
-                <span><el-icon><View /></el-icon> {{ caseDetail.view_count }} 次学习</span>
-                <span><el-icon><Star /></el-icon> {{ caseDetail.star_count }} 人收藏</span>
-                <span>{{ caseDetail.created_at }}</span>
+                <span><el-icon><View /></el-icon> {{ caseDetail.view_count || 0 }} 次学习</span>
+                <span><el-icon><Star /></el-icon> {{ caseDetail.star_count || 0 }} 人收藏</span>
+                <span>{{ caseDetail.created_at || caseDetail.create_time }}</span>
               </div>
             </div>
             <div class="header-right">
@@ -44,7 +42,6 @@
           </div>
         </el-card>
 
-        <!-- 案例内容区 -->
         <el-card class="common-card mt-20">
           <el-tabs v-model="activeTab" type="border-card">
             <el-tab-pane label="病例介绍" name="intro">
@@ -53,9 +50,9 @@
                 <el-descriptions :column="2" border class="info-table">
                   <el-descriptions-item label="患者性别">{{ caseDetail.gender || '女' }}</el-descriptions-item>
                   <el-descriptions-item label="患者年龄">{{ caseDetail.age || '45岁' }}</el-descriptions-item>
-                  <el-descriptions-item label="主诉" :span="2">{{ caseDetail.chief_complaint || '体检发现宫颈异常' }}</el-descriptions-item>
-                  <el-descriptions-item label="现病史" :span="2">{{ caseDetail.history_of_present_illness || '患者于1周前常规体检，宫颈细胞学检查提示ASC-US，无明显阴道流血、排液等症状。' }}</el-descriptions-item>
-                  <el-descriptions-item label="既往史" :span="2">{{ caseDetail.past_history || '既往体健，否认高血压、糖尿病、心脏病史。' }}</el-descriptions-item>
+                  <el-descriptions-item label="主诉" :span="2">{{ caseDetail.chief_complaint || '体检发现异常，要求进一步检查' }}</el-descriptions-item>
+                  <el-descriptions-item label="现病史" :span="2">{{ caseDetail.history_of_present_illness || '患者近期常规体检提示异常，无明显临床症状，前来就诊。' }}</el-descriptions-item>
+                  <el-descriptions-item label="既往史" :span="2">{{ caseDetail.past_history || '既往体健，否认高血压、糖尿病、心脏病等重大疾病史。' }}</el-descriptions-item>
                 </el-descriptions>
 
                 <h3 class="section-title">检查资料</h3>
@@ -86,41 +83,33 @@
                 <el-steps direction="vertical" :current="3" finish-status="success">
                   <el-step title="第一步：病史分析">
                     <template #description>
-                      <p>患者为中年女性，常规体检发现宫颈细胞学异常，无明显临床症状。</p>
-                      <p>需要重点关注：年龄、性生活史、孕产史、家族史、既往宫颈检查史。</p>
+                      <p>结合患者年龄及既往史，全面评估危险因素，关注核心主诉及偶发阳性体征。</p>
+                      <p>需要重点关注：家族史、近期用药史及相关专科检查结果。</p>
                     </template>
                   </el-step>
                   <el-step title="第二步：检查结果解读">
                     <template #description>
-                      <p>宫颈细胞学：ASC-US（意义不明确的非典型鳞状细胞）</p>
-                      <p>HPV检测：高危型HPV16、18型阳性，病毒载量较高。</p>
-                      <p>阴道镜检查：宫颈转化区可见醋白上皮，碘试验阴性，取活检送病理。</p>
-                      <p>病理结果：宫颈高级别鳞状上皮内病变（HSIL/CIN II-III级）。</p>
+                      <p>实验室检查：关注异常指标及其动态变化趋势。</p>
+                      <p>影像学检查：识别关键阳性特征（如病灶形态、边缘、密度/信号改变等）。</p>
+                      <p>病理/活检结果：作为最终确诊的“金标准”，结合免疫组化进一步分型。</p>
                     </template>
                   </el-step>
                   <el-step title="第三步：诊断与鉴别诊断">
                     <template #description>
-                      <p>明确诊断：宫颈高级别鳞状上皮内病变（HSIL），高危型HPV持续感染。</p>
-                      <p>鉴别诊断：
-                        <ul>
-                          <li>宫颈低级别鳞状上皮内病变（LSIL）</li>
-                          <li>宫颈炎症</li>
-                          <li>宫颈腺癌</li>
-                        </ul>
-                      </p>
+                      <p>明确诊断：综合临床表现、影像特征与病理结果给出最终诊断。</p>
+                      <p>鉴别诊断：需排除其他可能引起类似临床表现或影像学特征的良恶性疾病。</p>
                     </template>
                   </el-step>
                   <el-step title="第四步：治疗方案制定">
                     <template #description>
-                      <p>患者为HSIL，属于癌前病变，有进展为宫颈癌的风险，无生育需求。</p>
-                      <p>治疗方案：宫颈环形电切术（LEEP术），术后定期随访HPV及细胞学检查。</p>
-                      <p>术后病理：切缘阴性，无浸润癌证据。</p>
+                      <p>基于患者的具体分期、年龄、基础疾病等因素，制定个体化综合治疗方案。</p>
+                      <p>治疗方案：考虑手术、介入、放化疗或药物保守治疗等。</p>
                     </template>
                   </el-step>
                   <el-step title="第五步：随访与管理">
                     <template #description>
-                      <p>术后6个月复查HPV阴性，细胞学正常。</p>
-                      <p>长期随访计划：每年一次HPV联合细胞学筛查，持续20年。</p>
+                      <p>评估近期疗效，监测不良反应。</p>
+                      <p>长期随访计划：制定规律的复查时间表，关注复发或进展迹象。</p>
                     </template>
                   </el-step>
                 </el-steps>
@@ -133,29 +122,27 @@
                   <div class="comment-header">
                     <el-avatar :size="40" src="" />
                     <div class="commenter-info">
-                      <span class="commenter-name">王教授</span>
-                      <span class="commenter-title">北京协和医院 妇产科 主任医师</span>
+                      <span class="commenter-name">指导教授</span>
+                      <span class="commenter-title">三甲医院 主任医师</span>
                     </div>
                   </div>
                   <div class="comment-content">
                     <h4 class="comment-title">病例核心要点点评</h4>
-                    <p>本病例是宫颈癌前病变早期筛查与规范处理的典型案例，具有重要的教学价值：</p>
+                    <p>本病例是临床工作中的典型代表，具有重要的教学与实战指导价值：</p>
                     <ol>
                       <li>
-                        <strong>筛查策略的规范性</strong>：采用宫颈细胞学联合HPV检测的联合筛查方案，是目前国内外指南推荐的宫颈癌筛查金标准。本病例通过联合筛查发现了细胞学异常，进一步通过HPV分型检测明确了高危型别，为后续诊疗提供了关键依据。
+                        <strong>筛查与评估的规范性</strong>：早期发现和规范化的辅助检查是准确诊断的基础。本案例通过合理的检查组合快速锁定了病变区域。
                       </li>
                       <li>
-                        <strong>诊断流程的严谨性</strong>：从筛查异常到阴道镜检查、病理活检，严格遵循了宫颈癌前病变的三阶梯诊断流程。病理结果是诊断的金标准，本病例通过活检明确了HSIL的诊断，避免了过度治疗或治疗不足。
+                        <strong>影像与AI协同诊断</strong>：充分利用了医学影像特征，并结合AI辅助分析（如阳性病灶检出），有效降低了漏诊率。
                       </li>
                       <li>
-                        <strong>治疗方案的个体化</strong>：结合患者的年龄、病变级别、生育需求等因素，选择了LEEP术作为治疗方案，既完整切除了病变组织，又最大程度保留了宫颈的解剖结构，符合临床诊疗规范。
+                        <strong>诊疗思路的严谨性</strong>：从异常发现到确诊，严格遵循了临床标准路径。不仅给出了明确诊断，还进行了详尽的鉴别分析。
                       </li>
                       <li>
-                        <strong>术后随访的重要性</strong>：HSIL患者术后仍有复发风险，长期规范的随访是预防宫颈癌发生的关键。本病例制定了完善的随访计划，体现了全周期管理的理念。
+                        <strong>治疗的个体化与全周期管理</strong>：治疗方案切合患者实际情况，术后随访计划完善，体现了以患者为中心的现代医疗理念。
                       </li>
                     </ol>
-                    <h4 class="comment-title">临床警示</h4>
-                    <p>宫颈癌是唯一可以通过早期筛查和预防实现治愈的恶性肿瘤，高危型HPV持续感染是宫颈癌发生的必要条件。对于30岁以上女性，推荐每3-5年进行一次HPV联合细胞学筛查，早发现、早诊断、早治疗是降低宫颈癌发病率和死亡率的关键。</p>
                   </div>
                 </div>
               </div>
@@ -193,7 +180,6 @@
           </el-tabs>
         </el-card>
 
-        <!-- 讨论区 -->
         <el-card class="common-card mt-20">
           <template #header>
             <div class="card-header">
@@ -243,9 +229,7 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧侧边栏 -->
       <el-col :span="6">
-        <!-- 学习进度 -->
         <el-card class="common-card mb-20">
           <template #header>
             <span class="card-title">学习进度</span>
@@ -271,22 +255,19 @@
           </div>
         </el-card>
 
-        <!-- 病例核心信息 -->
         <el-card class="common-card mb-20">
           <template #header>
             <span class="card-title">病例核心信息</span>
           </template>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="病种">{{ caseDetail.disease_type || '宫颈癌' }}</el-descriptions-item>
+            <el-descriptions-item label="病种">{{ caseDetail.disease_type || '未知分类' }}</el-descriptions-item>
             <el-descriptions-item label="病例类型">{{ caseDetail.case_type || '典型病例' }}</el-descriptions-item>
             <el-descriptions-item label="难度">{{ caseDetail.difficulty || '入门' }}</el-descriptions-item>
-            <el-descriptions-item label="患者年龄">{{ caseDetail.age || '45岁' }}</el-descriptions-item>
-            <el-descriptions-item label="最终诊断">{{ caseDetail.final_diagnosis || '宫颈高级别鳞状上皮内病变' }}</el-descriptions-item>
-            <el-descriptions-item label="治疗方案">{{ caseDetail.treatment || 'LEEP术' }}</el-descriptions-item>
+            <el-descriptions-item label="患者年龄">{{ caseDetail.age || '保密' }}</el-descriptions-item>
+            <el-descriptions-item label="阳性发现">{{ (caseDetail.findings && caseDetail.findings[0]) || '影像学见异常病灶' }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
 
-        <!-- 相关案例推荐 -->
         <el-card class="common-card mb-20">
           <template #header>
             <span class="card-title">相关案例推荐</span>
@@ -307,7 +288,6 @@
           </div>
         </el-card>
 
-        <!-- 学习工具 -->
         <el-card class="common-card">
           <template #header>
             <span class="card-title">学习工具</span>
@@ -333,10 +313,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue' // 🔥 修复白屏报错：引入了 computed
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
+import { getTeachingCaseDetail } from '@/api/teaching' // 🔥 引入请求后端单条数据的 API
 
 const router = useRouter()
 const route = useRoute()
@@ -350,11 +331,11 @@ const learnProgress = ref(0)
 // 案例详情
 const caseDetail = ref({})
 
-// 检查数据
+// 检查数据 (这里先留静态示例，如果有需要也可以随同案例详情一起存后端)
 const examData = ref([
-  { item: '宫颈细胞学', result: 'ASC-US', reference: '未见上皮内病变或恶性病变' },
-  { item: 'HPV检测', result: '16型阳性、18型阳性', reference: '阴性' },
-  { item: '血常规', result: 'WBC 6.5×10^9/L，Hb 125g/L', reference: 'WBC 4-10×10^9/L，Hb 110-150g/L' },
+  { item: '常规生化全套', result: '多数指标正常', reference: '见具体化验单' },
+  { item: '专科特异性抗体/标志物', result: '部分指标异常升高', reference: '阴性或正常范围' },
+  { item: '血常规', result: 'WBC 6.5×10^9/L', reference: 'WBC 4-10×10^9/L' },
   { item: '肝肾功能', result: '正常', reference: '正常范围' },
   { item: '凝血功能', result: '正常', reference: '正常范围' }
 ])
@@ -365,49 +346,20 @@ const caseImages = ref([
   'https://images.unsplash.com/photo-1558636508-e0db3814bd1d?w=800&q=80'
 ])
 const imgLabels = ref([
-  '宫颈阴道镜检查图像',
-  '宫颈病理切片HE染色图像'
+  '临床影像检查图像 (CT/MRI/阴道镜等)',
+  '病理切片HE染色图像'
 ])
 
 // 指南列表
 const guideList = ref([
-  {
-    id: 1,
-    name: '中国子宫颈癌筛查及早诊早治指南（2024年版）',
-    type: '临床指南',
-    publish_time: '2024-03-15',
-    url: '#'
-  },
-  {
-    id: 2,
-    name: 'WHO宫颈癌前病变筛查与治疗指南',
-    type: '国际指南',
-    publish_time: '2023-05-20',
-    url: '#'
-  },
-  {
-    id: 3,
-    name: 'ASCCP子宫颈癌筛查异常管理共识指南',
-    type: '国际指南',
-    publish_time: '2022-04-10',
-    url: '#'
-  }
+  { id: 1, name: '相关疾病诊疗指南（2024年版）', type: '临床指南', publish_time: '2024-03-15', url: '#' },
+  { id: 2, name: '临床影像诊断与处理共识', type: '专家共识', publish_time: '2023-05-20', url: '#' }
 ])
 
 // 课件列表
 const courseList = ref([
-  {
-    name: '宫颈癌前病变的诊断与治疗',
-    desc: '系统讲解宫颈癌前病变的三阶梯诊断流程与治疗方案选择'
-  },
-  {
-    name: '阴道镜检查规范操作',
-    desc: '阴道镜检查的操作要点、图像解读与活检技巧'
-  },
-  {
-    name: 'HPV感染的临床管理',
-    desc: 'HPV感染的自然史、风险分层与临床干预策略'
-  }
+  { name: '典型疾病影像特征诊断与鉴别', desc: '系统讲解疾病的多模态影像表现与实战鉴别技巧' },
+  { name: '临床规范操作与前沿进展', desc: '深入探讨前沿技术与诊疗规范的结合点' }
 ])
 
 // 评论列表
@@ -416,21 +368,13 @@ const commentList = ref([
     id: 1,
     user_name: '李医生',
     avatar: '',
-    content: '这个病例非常典型，对于基层医生学习宫颈癌筛查规范很有帮助，感谢分享！',
+    content: '这个病例的阳性特征非常典型，对于提升阅片经验很有帮助，感谢分享！',
     created_at: '2025-12-16 10:25',
     like_count: 12
   },
   {
     id: 2,
     user_name: '张医生',
-    avatar: '',
-    content: '请问对于有生育需求的HSIL患者，治疗方案的选择有什么需要特别注意的地方吗？',
-    created_at: '2025-12-17 08:40',
-    like_count: 5
-  },
-  {
-    id: 3,
-    user_name: '王医生',
     avatar: '',
     content: '专家点评非常到位，把病例的核心要点和临床警示都讲清楚了，学习到了很多。',
     created_at: '2025-12-18 15:10',
@@ -440,24 +384,9 @@ const commentList = ref([
 
 // 相关案例列表
 const relatedCaseList = ref([
-  {
-    id: 5,
-    title: '宫颈癌筛查假阴性病例分析',
-    disease_type: '宫颈癌',
-    view_count: 456
-  },
-  {
-    id: 1,
-    title: '宫颈癌早期筛查典型病例分析',
-    disease_type: '宫颈癌',
-    view_count: 1256
-  },
-  {
-    id: 7,
-    title: 'HPV持续感染病例管理',
-    disease_type: '宫颈癌',
-    view_count: 320
-  }
+  { id: 1, title: '典型右上肺周围型肺癌伴胸膜牵拉', disease_type: '肺结节', view_count: 456 },
+  { id: 2, title: '早期宫颈病变(CIN II)的阴道镜下表现', disease_type: '宫颈癌', view_count: 1256 },
+  { id: 3, title: '复杂冠脉多支病变伴严重钙化', disease_type: '冠心病', view_count: 320 }
 ])
 
 // 获取难度标签类型
@@ -516,35 +445,48 @@ const likeComment = (id) => {
 // 跳转到案例详情
 const goToCaseDetail = (id) => {
   router.push(`/teaching/${id}`)
-  // 刷新页面数据
-  caseId.value = id
-  loadCaseDetail()
+  // 刷新页面数据（vue-router同一组件参数变化不会触发onMounted，需手动调用）
+  setTimeout(() => {
+    loadCaseDetail()
+  }, 100)
 }
 
-// 加载案例详情
+// 🔥 优化后的加载案例详情逻辑
 const loadCaseDetail = async () => {
-  // 模拟API调用
-  await new Promise(resolve => setTimeout(resolve, 500))
-  // 模拟数据
+  try {
+    // 优先尝试从后端获取真实数据
+    const res = await getTeachingCaseDetail(caseId.value)
+    
+    // 如果获取成功且对象不为空
+    if (res && res.id) {
+      caseDetail.value = res
+      return // 成功获取直接返回，不再执行下面的模拟数据
+    }
+  } catch (error) {
+    console.warn('获取真实案例详情失败或接口尚未实现，将使用本地模拟数据兜底防止白屏。', error)
+  }
+
+  // 兜底方案：如果后端没有写 /cases/{id} 接口或者网络请求失败，使用默认数据填补页面
   caseDetail.value = {
     id: caseId.value,
-    title: '宫颈癌早期筛查典型病例分析',
-    case_type: '典型病例',
-    disease_type: '宫颈癌',
+    title: '案例详情请求失败或暂无对应数据',
+    case_type: '未知类型',
+    disease_type: '暂未分类',
     difficulty: '入门',
-    description: '通过宫颈细胞学检查结合HPV检测，早期发现宫颈癌前病变的典型案例。',
-    view_count: 1256,
-    star_count: 89,
-    author_name: '张医生',
+    description: '未能从数据库获取到该ID对应的具体教学案例数据，当前展示为系统模拟页面。',
+    view_count: 0,
+    star_count: 0,
+    author_name: '系统测试员',
     author_avatar: '',
-    created_at: '2025-12-15',
-    gender: '女',
-    age: '45岁',
-    chief_complaint: '体检发现宫颈异常',
-    history_of_present_illness: '患者于1周前常规体检，宫颈细胞学检查提示ASC-US，无明显阴道流血、排液等症状。',
-    past_history: '既往体健，否认高血压、糖尿病、心脏病史。',
-    final_diagnosis: '宫颈高级别鳞状上皮内病变（HSIL/CIN II-III级）',
-    treatment: '宫颈环形电切术（LEEP术）'
+    created_at: new Date().toLocaleDateString(),
+    gender: '未知',
+    age: '未知',
+    findings: ['未见明显异常'],
+    chief_complaint: '无',
+    history_of_present_illness: '无详细现病史记录。',
+    past_history: '无',
+    final_diagnosis: '等待明确诊断',
+    treatment: '对症观察'
   }
 }
 
@@ -558,6 +500,15 @@ watch(activeTab, (newTab) => {
   }
   if (progressMap[newTab] > learnProgress.value) {
     learnProgress.value = progressMap[newTab]
+  }
+})
+
+// 监听路由参数变化（解决右侧推荐点击后页面不刷新的问题）
+watch(() => route.params.id, (newId, oldId) => {
+  if (newId !== oldId && route.path.includes('/teaching/')) {
+    activeTab.value = 'intro'
+    learnProgress.value = 0
+    loadCaseDetail()
   }
 })
 
