@@ -1,13 +1,13 @@
+// frontend/src/api/inference.js
 import request from './index'
 
 /**
  * 提交批量推理/模型对比任务
- * @param {FormData} data 包含文件和所选模型的表单数据
+ * @param {Object} data 包含文件和所选模型的表单数据
  */
 export function batchInference(data) {
-  return request.post('/inference/batch', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  // 修复：移除错误的 multipart/form-data 请求头，因为这里传的是纯 JSON 对象
+  return request.post('/inference/batch', data)
 }
 
 /**
@@ -21,7 +21,7 @@ export function exportCompareReport(data) {
 }
 
 /**
- * 获取单次推理结果 (备用补充，防止其他页面也会用到)
+ * 获取单次推理结果
  * @param {string|number} taskId 任务ID
  */
 export function getInferenceResult(taskId) {
