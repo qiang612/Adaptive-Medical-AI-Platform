@@ -11,7 +11,8 @@ const CookieUtil = {
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/v1',  timeout: 60000,
+baseURL: '/api/v1',  
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json;charset=utf-8'
   }
