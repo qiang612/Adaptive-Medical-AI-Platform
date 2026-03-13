@@ -76,7 +76,7 @@
           
           <div class="pagination-wrapper">
             <el-pagination
-              small
+              size="small"
               layout="prev, pager, next"
               :total="pagination.total"
               v-model:current-page="pagination.page"
@@ -267,8 +267,16 @@ const loadPatientList = async () => {
   try {
     const params = {
       page: pagination.page, page_size: pagination.pageSize,
-      keyword: searchForm.keyword, gender: searchForm.gender
+      keyword: searchForm.keyword, gender: searchForm.gender,
+      age_range: searchForm.ageRange
     }
+
+    // 加入时间范围参数
+    if (searchForm.timeRange && searchForm.timeRange.length === 2) {
+      params.start_time = searchForm.timeRange[0]
+      params.end_time = searchForm.timeRange[1]
+    }
+
     // 处理年龄段等逻辑...
     const res = await getPatients(params)
     patientList.value = res.items || res || []

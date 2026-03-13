@@ -6,3 +6,4 @@ from app.models.inference_task import InferenceTask, TaskStatus
 from app.models.upload_file import UploadFile, FileType
 from app.models.notification import Notification, NotificationType, NotificationStatus
 from app.models.operation_log import OperationLog, OperationType
+from app.models.patient import Patient
