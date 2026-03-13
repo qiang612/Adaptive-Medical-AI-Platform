@@ -153,23 +153,31 @@
           </el-button>
         </div>
       </template>
-      <el-table :data="detailList" border class="common-table" v-loading="loading">
+      <el-table :data="detailList" border class="common-table" v-loading="loading" style="width: 100%">
         <template #empty>
           <el-empty description="该时间段内暂无诊断明细" :image-size="100" />
         </template>
         
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="patient_name" label="患者姓名" width="120" />
-        <el-table-column prop="model_name" label="使用模型" width="150" />
-        <el-table-column prop="disease_type" label="病种类型" width="120" />
-        <el-table-column prop="risk_level" label="风险等级" width="100">
+        <el-table-column prop="id" label="ID" width="80" align="center" />
+        <el-table-column prop="patient_name" label="患者姓名" min-width="120" />
+        <el-table-column label="使用模型" min-width="160">
           <template #default="{ row }">
-            <StatusTag :status="row.risk_level" :textMap="riskTextMap" :typeMap="riskTypeMap" />
+            {{ modelNameMap[row.result?.model_type] || row.model_name || '未知模型' }}
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="诊断时间" width="180" />
-        <el-table-column prop="duration" label="耗时" width="100" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="病种类型" min-width="120">
+          <template #default="{ row }">
+             {{ diseaseMap[row.result?.model_type] || row.disease_type || '未知' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="风险等级" min-width="100" align="center">
+          <template #default="{ row }">
+            <StatusTag :status="row.result?.risk_level || row.risk_level" :textMap="riskTextMap" :typeMap="riskTypeMap" />
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="诊断时间" min-width="180" />
+        <el-table-column prop="duration" label="耗时" width="100" align="center" />
+        <el-table-column label="操作" width="120" fixed="right" align="center">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="viewDetail(row)">查看结果</el-button>
           </template>
@@ -248,6 +256,19 @@ const hasRiskData = computed(() => riskOption.value.series[0].data && riskOption
 // 风险等级映射
 const riskTextMap = { '低风险': '低风险', '中风险': '中风险', '高风险': '高风险' }
 const riskTypeMap = { '低风险': 'success', '中风险': 'warning', '高风险': 'danger' }
+
+// 核心修改：新增的模型和病种字典映射
+const diseaseMap = {
+  "Multimodal_Fusion (CNN + MLP)": "冠心病",
+  "YOLOv8_Detection": "肺结节",
+  "YOLOv8_Cervical": "宫颈病变"
+}
+
+const modelNameMap = {
+  "Multimodal_Fusion (CNN + MLP)": "CHD多模态大模型",
+  "YOLOv8_Detection": "肺结节检测模型",
+  "YOLOv8_Cervical": "宫颈筛查模型"
+}
 
 // 诊断趋势图配置
 const trendOption = ref({
