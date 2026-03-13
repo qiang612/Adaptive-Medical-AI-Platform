@@ -7,6 +7,7 @@ class Patient(Base):
     __tablename__ = "patients"
 
     id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(String(50), unique=True, index=True, nullable=True, comment="门诊/住院号")
     name = Column(String(50), nullable=False, index=True)
     gender = Column(String(10), nullable=False)
     birthday = Column(Date, nullable=True)

@@ -274,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue' // ✅ 引入 onUnmounted
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getActiveModels } from '@/api/model'
@@ -292,7 +292,7 @@ const fileList = ref([])      // 影像文件
 const extraFileList = ref([]) // Excel等附加文件
 const submitting = ref(false)
 const recentTasks = ref([])
-let pollTimer = null // ✅ 用于保存轮询定时器
+let pollTimer = null // 用于保存轮询定时器
 
 // 影像预览专用状态
 const imageLoading = ref(false)
@@ -347,7 +347,7 @@ const loadModels = async () => {
     const res = await getActiveModels()
     // 解析 JSON
     models.value = res.map(model => {
-      model.id = Number(model.id) // 🔴 核心修复1：强制将从后端获取的 id 转换为数字
+      model.id = Number(model.id)
       if (typeof model.input_schema === 'string') {
         try {
           model.input_schema = JSON.parse(model.input_schema)
@@ -371,43 +371,37 @@ const loadRecentTasks = async () => {
   }
 }
 
-// ✅ 轮询刷新机制：如果有正在处理中的任务，每3秒去查一次状态
+// 轮询刷新机制：如果有正在处理中的任务，每3秒去查一次状态
 const startPolling = () => {
   if (pollTimer) clearInterval(pollTimer)
   pollTimer = setInterval(async () => {
-    // 检查是否还有 pending 或 processing 状态的任务
     const hasProcessing = recentTasks.value.some(t => t.status === 'pending' || t.status === 'processing')
     if (hasProcessing) {
       await loadRecentTasks()
     } else {
-      clearInterval(pollTimer) // 没任务了就停止刷新节省性能
+      clearInterval(pollTimer)
     }
   }, 3000)
 }
 
 // 核心自适应逻辑：模型切换时清空旧数据
-// 核心自适应逻辑：模型切换时清空旧数据
 const onModelChange = (modelId) => {
-  // 1. 无论如何，第一步先彻底清空当前所有状态（这相当于代码自动帮你点了那个 '×'）
   selectedModel.value = null
   taskForm.inputData = {}
   currentImage.value = null
   fileList.value = []
   extraFileList.value = []
 
-  // 2. 如果用户真的是点了 '×' 清空，执行到这里就结束了
   if (!modelId) return
 
-  // 3. 延迟一小会儿再加载新模型数据
-  // 这一步是灵魂：强制让 Vue 先把旧模型的表单从页面上卸载干净，再加载新模型
-  // 彻底防止新旧表单状态打架导致的下拉框卡死不刷新
   setTimeout(() => {
     const targetModel = models.value.find(m => String(m.id) === String(modelId))
     if (targetModel) {
       selectedModel.value = targetModel
     }
-  }, 50) // 50毫秒的延迟用户毫无察觉，但足够 Vue 完成底层 DOM 的清理
+  }, 50)
 }
+
 // 影像文件处理
 const handleFileChange = (uploadFile, uploadFiles) => {
   fileList.value = uploadFiles
@@ -530,7 +524,7 @@ const handleSubmit = async () => {
     })
     
     await loadRecentTasks() 
-    startPolling() // ✅ 提交任务后立刻启动自动刷新
+    startPolling() 
 
   } catch (error) {
     ElMessage.error('请求提交失败，请检查网络或联系管理员')
@@ -552,15 +546,19 @@ onMounted(async () => {
   await loadRecentTasks()
   startPolling() // 初始化挂载时如果存在任务，也开启轮询
   
-  if (route.query.patient_id) {
-    taskForm.patientId = route.query.patient_id
+  // ✅ 修复：接收通过 URL 传递的所有患者参数并进行表单自动填充
+  if (route.query.patient_name || route.query.patient_id) {
+    taskForm.patientId = route.query.patient_id || ''
+    taskForm.patientName = route.query.patient_name || ''
+    taskForm.gender = route.query.gender || ''
+    taskForm.age = route.query.age ? Number(route.query.age) : null
+    taskForm.phone = route.query.phone || ''
   } else {
     const draft = localStorage.getItem('diagnosis_draft')
     if (draft) {
       const parsedDraft = JSON.parse(draft)
       Object.assign(taskForm, parsedDraft)
       
-      // ✅ 修复：如果草稿中存的日期为空，强制补全为今天
       if (!taskForm.checkDate) {
         taskForm.checkDate = getToday()
       }

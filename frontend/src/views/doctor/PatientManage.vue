@@ -14,7 +14,7 @@
 
     <SearchBar
       :show-keyword="true"
-      keyword-placeholder="搜索姓名、身份证、手机号"
+      keyword-placeholder="搜索姓名、门诊号、身份证、手机号"
       :show-time-range="true"
       @search="handleSearch"
       @reset="handleReset"
@@ -120,6 +120,7 @@
             <el-divider />
 
             <el-descriptions title="基础信息" :column="2" border class="info-desc">
+              <el-descriptions-item label="患者ID(门诊号)">{{ selectedPatient.patient_id || '-' }}</el-descriptions-item>
               <el-descriptions-item label="联系电话">{{ selectedPatient.phone || '-' }}</el-descriptions-item>
               <el-descriptions-item label="身份证号">{{ formatIdCard(selectedPatient.id_card) }}</el-descriptions-item>
               <el-descriptions-item label="出生日期">{{ selectedPatient.birthday || '-' }}</el-descriptions-item>
@@ -144,7 +145,16 @@
             </div>
             
             <div class="quick-action-box">
-              <el-button type="primary" size="large" style="width: 100%" @click="$router.push({ path: '/inference', query: { patient_id: selectedPatient.id } })">
+              <el-button type="primary" size="large" style="width: 100%" @click="$router.push({ 
+                  path: '/inference', 
+                  query: { 
+                    patient_id: selectedPatient.patient_id || '', 
+                    patient_name: selectedPatient.name,
+                    gender: selectedPatient.gender,
+                    age: selectedPatient.age,
+                    phone: selectedPatient.phone
+                  } 
+                })">
                 <el-icon><VideoPlay /></el-icon> 为该患者发起新AI诊断
               </el-button>
             </div>
@@ -157,10 +167,17 @@
       <el-form :model="patientForm" :rules="patientRules" ref="patientFormRef" label-width="120px" class="common-form">
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="患者ID(门诊号)" prop="patient_id">
+              <el-input v-model="patientForm.patient_id" placeholder="请输入门诊/住院号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="患者姓名" prop="name">
               <el-input v-model="patientForm.name" placeholder="请输入姓名" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="性别" prop="gender">
               <el-radio-group v-model="patientForm.gender">
@@ -169,28 +186,33 @@
               </el-radio-group>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="出生日期" prop="birthday">
               <el-date-picker v-model="patientForm.birthday" type="date" style="width: 100%" value-format="YYYY-MM-DD" @change="calculateAge" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="年龄">
               <el-input-number v-model="patientForm.age" :min="0" :max="150" style="width: 100%" />
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="身份证号" prop="idCard">
               <el-input v-model="patientForm.id_card" placeholder="请输入身份证号" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="联系电话" prop="phone">
               <el-input v-model="patientForm.phone" placeholder="请输入联系电话" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="电子邮箱" prop="email">
+              <el-input v-model="patientForm.email" placeholder="请输入电子邮箱" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -238,7 +260,7 @@ const searchForm = reactive({
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 
 const patientForm = reactive({
-  id: null, name: '', gender: '', birthday: '', age: null, id_card: '', phone: '', email: '', address: '', medical_history: '', remark: ''
+  id: null, patient_id: '', name: '', gender: '', birthday: '', age: null, id_card: '', phone: '', email: '', address: '', medical_history: '', remark: ''
 })
 
 const patientRules = {
@@ -315,7 +337,7 @@ const handleReset = () => {
 const openPatientDialog = (row = null) => {
   isEdit.value = !!row
   Object.assign(patientForm, row || {
-    id: null, name: '', gender: '', birthday: '', age: null, id_card: '', phone: '', address: '', medical_history: '', remark: ''
+    id: null, patient_id: '', name: '', gender: '', birthday: '', age: null, id_card: '', phone: '', email: '', address: '', medical_history: '', remark: ''
   })
   patientDialogVisible.value = true
 }

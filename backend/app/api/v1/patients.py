@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from typing import Optional
 import traceback
 from fastapi.responses import JSONResponse
-
+from app.models.inference_task import InferenceTask
 from app.core.database import SessionLocal
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientUpdate, PatientResponse, PatientList
@@ -115,3 +115,61 @@ def delete_patient(patient_id: int, db: Session = Depends(get_db)):
     db.delete(db_patient)
     db.commit()
     return {"message": "删除成功"}
+
+
+@router.get("/{patient_id}", response_model=PatientResponse)
+def get_patient(patient_id: int, db: Session = Depends(get_db)):
+    db_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not db_patient:
+        raise HTTPException(status_code=404, detail="未找到该患者")
+    return db_patient
+
+
+@router.get("/{patient_id}/diagnosis")
+def get_patient_diagnosis(
+        patient_id: int,
+        page: int = Query(1, ge=1),
+        page_size: int = Query(10, ge=1),
+        db: Session = Depends(get_db)
+):
+    try:
+        db_patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        if not db_patient:
+            raise HTTPException(status_code=404, detail="未找到该患者")
+
+        # 匹配对应患者门诊号或姓名的任务
+        query = db.query(InferenceTask).filter(
+            or_(
+                InferenceTask.patient_id == db_patient.patient_id,
+                InferenceTask.patient_name == db_patient.name
+            )
+        )
+        total = query.count()
+        items = query.order_by(InferenceTask.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+        # 转换为字典返回
+        result_items = []
+        for item in items:
+            item_dict = {
+                "id": item.id,
+                "task_id": item.task_id,
+                "model_id": item.model_id,
+                "patient_name": item.patient_name,
+                "patient_id": item.patient_id,
+                "status": item.status,
+                "error_msg": item.error_msg,
+                "result": item.result,
+                "created_at": item.created_at.strftime("%Y-%m-%d %H:%M:%S") if item.created_at else None,
+            }
+            result_items.append(item_dict)
+
+        return {
+            "total": total,
+            "items": result_items,
+            "page": page,
+            "page_size": page_size
+        }
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        return JSONResponse(status_code=500, content={"error": str(e)})

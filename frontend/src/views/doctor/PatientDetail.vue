@@ -8,7 +8,6 @@
     </div>
 
     <el-row :gutter="20">
-      <!-- 左侧患者档案 -->
       <el-col :span="8">
         <el-card class="common-card">
           <template #header>
@@ -41,6 +40,9 @@
             <el-divider />
 
             <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="患者ID(门诊号)">
+                {{ patientDetail.patient_id || '-' }}
+              </el-descriptions-item>
               <el-descriptions-item label="身份证号">
                 {{ patientDetail.id_card ? patientDetail.id_card.replace(/^(.{6})(.+)(.{4})$/, '$1********$3') : '-' }}
               </el-descriptions-item>
@@ -78,7 +80,6 @@
           </div>
         </el-card>
 
-        <!-- 统计卡片 -->
         <el-card class="common-card mt-20">
           <template #header>
             <span class="card-title">诊断统计</span>
@@ -99,7 +100,6 @@
           </el-row>
         </el-card>
 
-        <!-- 快捷操作 -->
         <el-card class="common-card mt-20">
           <template #header>
             <span class="card-title">快捷操作</span>
@@ -121,7 +121,6 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧诊断历史 -->
       <el-col :span="16">
         <el-card class="common-card">
           <template #header>
@@ -205,20 +204,25 @@
       </el-col>
     </el-row>
 
-    <!-- 诊断结果对话框 -->
     <el-dialog v-model="resultDialogVisible" title="诊断详情" width="900px" fullscreen>
       <ResultVisual :result="currentResult" />
     </el-dialog>
 
-    <!-- 患者编辑对话框（复用PatientManage的逻辑） -->
     <el-dialog v-model="patientDialogVisible" title="编辑患者" width="700px" :close-on-click-modal="false">
       <el-form :model="patientForm" :rules="patientRules" ref="patientFormRef" label-width="120px" class="common-form">
         <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="患者ID(门诊号)">
+              <el-input v-model="patientForm.patient_id" placeholder="请输入门诊/住院号" />
+            </el-form-item>
+          </el-col>
           <el-col :span="12">
             <el-form-item label="患者姓名" prop="name">
               <el-input v-model="patientForm.name" placeholder="请输入患者姓名" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="性别" prop="gender">
               <el-radio-group v-model="patientForm.gender">
@@ -227,8 +231,6 @@
               </el-radio-group>
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="出生日期">
               <el-date-picker
@@ -239,27 +241,31 @@
               />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="年龄">
               <el-input-number v-model="patientForm.age" :min="0" :max="150" style="width: 100%" />
             </el-form-item>
           </el-col>
-        </el-row>
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="身份证号">
               <el-input v-model="patientForm.id_card" placeholder="请输入身份证号" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="联系电话">
               <el-input v-model="patientForm.phone" placeholder="请输入联系电话" />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="电子邮箱">
+              <el-input v-model="patientForm.email" placeholder="请输入电子邮箱" />
+            </el-form-item>
+          </el-col>
         </el-row>
-        <el-form-item label="电子邮箱">
-          <el-input v-model="patientForm.email" placeholder="请输入电子邮箱" />
-        </el-form-item>
         <el-form-item label="家庭住址">
           <el-input v-model="patientForm.address" type="textarea" :rows="2" placeholder="请输入家庭住址" />
         </el-form-item>
@@ -311,6 +317,7 @@ const pagination = reactive({
 // 患者表单（用于编辑）
 const patientForm = reactive({
   id: null,
+  patient_id: '',
   name: '',
   gender: '',
   birthday: '',
@@ -426,8 +433,11 @@ const startNewDiagnosis = () => {
   router.push({
     path: '/inference',
     query: {
-      patient_id: patientId.value,
-      patient_name: patientDetail.value.name
+      patient_id: patientDetail.value.patient_id || '',
+      patient_name: patientDetail.value.name || '',
+      gender: patientDetail.value.gender || '',
+      age: patientDetail.value.age || '',
+      phone: patientDetail.value.phone || ''
     }
   })
 }

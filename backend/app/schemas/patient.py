@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import date, datetime
 
 class PatientBase(BaseModel):
+    patient_id: Optional[str] = None
     name: str
     gender: str
     birthday: Optional[date] = None
