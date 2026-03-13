@@ -1,6 +1,6 @@
 # backend/app/schemas/task.py
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from app.models.inference_task import TaskStatus
 
@@ -17,7 +17,9 @@ class TaskResponse(TaskBase):
     id: int
     task_id: str
     user_id: int
-    model_name: Optional[str] = "智能诊断模型" # 提供一个兜底名称，保证前端不显示空
+    model_name: Optional[str] = None  # 取消默认值兜底，由Service关联查询真实名称
+    risk_level: Optional[str] = None  # 新增：风险等级
+    duration: Optional[int] = None    # 新增：任务耗时(秒)
     status: TaskStatus
     result: Optional[Dict[str, Any]] = None
     error_msg: Optional[str] = None
@@ -28,3 +30,8 @@ class TaskResponse(TaskBase):
 
     class Config:
         from_attributes = True
+
+# 新增分页列表的 Schema 响应格式
+class TaskListResponse(BaseModel):
+    total: int
+    items: List[TaskResponse]

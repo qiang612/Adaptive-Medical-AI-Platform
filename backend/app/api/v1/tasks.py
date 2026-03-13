@@ -1,27 +1,41 @@
 # backend/app/api/v1/tasks.py
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
+from pydantic import BaseModel
+
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.config import settings
-from app.schemas.task import TaskCreate, TaskResponse
+from app.schemas.task import TaskCreate, TaskResponse, TaskListResponse
 from app.services.task_service import task_service
 from app.services.inference_service import run_inference_task
 
 router = APIRouter(prefix="/tasks", tags=["推理任务"])
 
+# 供批量删除接收 JSON 请求体使用
+class BatchDeleteRequest(BaseModel):
+    ids: List[int]
 
-@router.get("/", response_model=list[TaskResponse])
+
+@router.get("/", response_model=TaskListResponse)
 def get_user_tasks(
+        page: int = 1,
+        page_size: int = 10,
+        keyword: Optional[str] = None,
+        model_id: Optional[int] = None,
         status: Optional[str] = None,
+        risk_level: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
-    """获取当前用户的任务列表"""
-    return task_service.get_user_tasks(db, user_id=current_user.id, status=status)
+    """获取当前用户的任务列表（全面支持分页、搜索、分类等）"""
+    return task_service.get_paginated_user_tasks(
+        db, user_id=current_user.id, page=page, page_size=page_size,
+        keyword=keyword, model_id=model_id, status=status, risk_level=risk_level
+    )
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
@@ -91,6 +105,19 @@ async def create_task(
     run_inference_task.delay(task.id)
 
     return task
+
+
+@router.delete("/batch")
+def batch_delete_tasks(
+        req: BatchDeleteRequest,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """批量删除任务（前端单删和批量删都调用此接口）"""
+    deleted_count = task_service.batch_delete_tasks(
+        db, task_ids=req.ids, user_id=current_user.id, role=current_user.role
+    )
+    return {"message": f"成功删除 {deleted_count} 个任务"}
 
 
 @router.delete("/{task_id}")

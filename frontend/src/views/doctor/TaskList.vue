@@ -204,22 +204,36 @@ const handleTabChange = (name) => {
   loadTaskList()
 }
 
-// 加载任务列表
+// 加载任务列表 (修复 422 错误的核心部分)
 const loadTaskList = async () => {
   loading.value = true
   try {
+    // 先构建必须要传的基础参数
     const params = {
       page: pagination.page,
       page_size: pagination.pageSize,
-      keyword: searchForm.keyword,
-      model_id: searchForm.modelId,
-      status: activeStatusTab.value === 'all' ? '' : activeStatusTab.value,
-      risk_level: searchForm.riskLevel
     }
+    
+    // 只有当对应的值存在（且不是空字符串）时，才添加到参数对象中
+    if (searchForm.keyword) {
+      params.keyword = searchForm.keyword
+    }
+    if (searchForm.modelId) {
+      params.model_id = searchForm.modelId
+    }
+    if (activeStatusTab.value && activeStatusTab.value !== 'all') {
+      params.status = activeStatusTab.value
+    }
+    if (searchForm.riskLevel) {
+      params.risk_level = searchForm.riskLevel
+    }
+    
+    // 处理时间范围
     if (searchForm.timeRange && searchForm.timeRange.length === 2) {
       params.start_time = searchForm.timeRange[0]
       params.end_time = searchForm.timeRange[1]
     }
+
     const res = await getMyTasks(params)
     taskList.value = res.items || res || []
     pagination.total = res.total || taskList.value.length

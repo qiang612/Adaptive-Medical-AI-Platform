@@ -59,10 +59,19 @@ class YoloCervicalAdapter(BaseAIAdapter):
                 annotated_image_path = os.path.join(settings.UPLOAD_DIR, "images", annotated_filename)
                 cv2.imwrite(annotated_image_path, annotated_img)
 
+        risk_level = "低风险"
+        if len(detections) == 0:
+            risk_level = "低风险"
+        elif len(detections) == 1:
+            risk_level = "中风险"
+        else:
+            risk_level = "高风险"
+
         return {
             "model_type": "YOLOv8_Cervical",
             "original_image": image_path,
             "annotated_image": annotated_image_path,
             "detections": detections,
+            "risk_level": risk_level,
             "conclusion": f"共发现 {len(detections)} 处异常，请结合临床进一步诊断。"
         }

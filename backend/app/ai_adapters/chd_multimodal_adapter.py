@@ -83,8 +83,7 @@ class CHDMultimodalAdapter(BaseAIAdapter):
 
         # 3. 多模态特征融合 (晚期融合机制 Late Fusion)
         final_risk_prob = min(1.0, tabular_risk_prob * 0.7 + image_risk_penalty)
-        risk_level = "低风险" if final_risk_prob < 0.3 else "中等风险" if final_risk_prob < 0.7 else "高风险"
-
+        risk_level = "低风险" if final_risk_prob < 0.3 else "中风险" if final_risk_prob < 0.7 else "高风险"
         return {
             "model_type": "Multimodal_Fusion (CNN + MLP)",
             "fusion_details": {
