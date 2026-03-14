@@ -5,6 +5,8 @@ from app.core.config import settings
 import importlib
 import traceback
 import sys
+import socket  # 🔥 新增导入：用于获取当前物理机/容器的主机名 🔥
+
 # 🔥 移除顶部的从 task_service 和 database 导入，避免循环依赖 🔥
 
 class InferenceService:
@@ -21,6 +23,14 @@ class InferenceService:
             task = task_service.get_task_by_id(db, task_id=task_id)
             if not task:
                 return
+
+            # 👇 获取当前处理任务的机器/容器名称，并更新到数据库的 worker_name 字段 👇
+            try:
+                current_worker = socket.gethostname()
+                task.worker_name = current_worker
+                db.commit()
+            except Exception as e:
+                print(f"获取或更新 worker_name 失败: {e}")
 
             # 更新任务状态为处理中 (processing)
             task_service.update_task_status(db, task_id=task_id, status="processing")

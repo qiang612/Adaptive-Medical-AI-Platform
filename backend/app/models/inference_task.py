@@ -27,6 +27,7 @@ class InferenceTask(Base):
     result = Column(JSON, nullable=True, comment="推理结果") # 替换 output_data
     status = Column(Enum(TaskStatus), default=TaskStatus.PENDING, comment="任务状态")
     error_msg = Column(Text, nullable=True, comment="错误信息")
+    worker_name = Column(String(50), nullable=True, comment="处理该任务的Worker节点")
     start_time = Column(DateTime, default=datetime.now, comment="提交时间") # 替换 submit_time
     end_time = Column(DateTime, nullable=True, comment="完成时间") # 替换 complete_time
     created_at = Column(DateTime, default=datetime.now) # 新增，匹配 Schema
