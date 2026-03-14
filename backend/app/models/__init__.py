@@ -8,3 +8,4 @@ from app.models.notification import Notification, NotificationType, Notification
 from app.models.operation_log import OperationLog, OperationType
 from app.models.patient import Patient
 from app.models.teaching_case import TeachingCase
+from app.models.system import SystemConfig, NoticeTemplate
