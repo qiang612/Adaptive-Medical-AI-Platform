@@ -16,19 +16,16 @@
             @reset="handleReset"
           >
             <el-form-item label="操作类型">
-              <el-select v-model="searchForm.operation_type" placeholder="全部" clearable style="width: 160px">
-                <el-option label="新增" value="create" />
-                <el-option label="编辑" value="update" />
-                <el-option label="删除" value="delete" />
-                <el-option label="查询" value="query" />
-                <el-option label="上传" value="upload" />
-                <el-option label="下载" value="download" />
-                <el-option label="登录" value="login" />
-                <el-option label="登出" value="logout" />
+              <el-select v-model="searchForm.operation_type" placeholder="全部" clearable style="width: 160px" @change="handleFilterChange">
+                <el-option label="模型注册" value="model_register" />
+                <el-option label="模型更新" value="model_update" />
+                <el-option label="模型禁用" value="model_disable" />
+                <el-option label="任务提交" value="task_submit" />
+                <el-option label="创建用户" value="user_create" />
               </el-select>
             </el-form-item>
             <el-form-item label="操作状态">
-              <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 160px">
+              <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 160px" @change="handleFilterChange">
                 <el-option label="成功" value="success" />
                 <el-option label="失败" value="fail" />
               </el-select>
@@ -49,8 +46,6 @@
               </template>
             </el-table-column>
             <el-table-column prop="operation_content" label="操作内容" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="resource_type" label="资源类型" width="120" />
-            <el-table-column prop="resource_id" label="资源ID" width="100" />
             <el-table-column prop="ip_address" label="IP地址" width="140" />
             <el-table-column prop="status" label="状态" width="80">
               <template #default="{ row }">
@@ -96,7 +91,7 @@
             @reset="handleReset"
           >
             <el-form-item label="登录状态">
-              <el-select v-model="searchForm.login_status" placeholder="全部" clearable style="width: 160px">
+              <el-select v-model="searchForm.login_status" placeholder="全部" clearable style="width: 160px" @change="handleFilterChange">
                 <el-option label="成功" value="success" />
                 <el-option label="失败" value="fail" />
               </el-select>
@@ -157,7 +152,7 @@
             @reset="handleReset"
           >
             <el-form-item label="推理状态">
-              <el-select v-model="searchForm.inference_status" placeholder="全部" clearable style="width: 160px">
+              <el-select v-model="searchForm.inference_status" placeholder="全部" clearable style="width: 160px" @change="handleFilterChange">
                 <el-option label="成功" value="completed" />
                 <el-option label="失败" value="failed" />
                 <el-option label="处理中" value="processing" />
@@ -374,13 +369,19 @@ const inferenceTrendOption = ref({
 })
 // ====================================================
 
+// ✅ 新增：监听下拉框改变，自动触发查询
+const handleFilterChange = () => {
+  pagination.page = 1
+  loadLogList()
+}
+
 // Tab切换
 const handleTabChange = () => {
   pagination.page = 1
   loadLogList()
 }
 
-// 搜索
+// 搜索（点击搜索按钮触发）
 const handleSearch = (params) => {
   Object.assign(searchForm, params)
   pagination.page = 1
@@ -435,7 +436,7 @@ const loadOperationLogList = async () => {
     pagination.total = res.total || operationLogList.value.length
   } catch (error) {
     console.error('加载操作日志失败', error)
-    ElMessage.error('加载操作日志失败')
+    ElMessage.error('加载操作日志失败，请检查后端路由')
   } finally {
     loading.value = false
   }
@@ -460,7 +461,6 @@ const loadLoginLogList = async () => {
     pagination.total = res.total || loginLogList.value.length
   } catch (error) {
     console.error('加载登录日志失败', error)
-    ElMessage.error('加载登录日志失败')
   } finally {
     loading.value = false
   }
@@ -485,7 +485,7 @@ const loadInferenceLogList = async () => {
     pagination.total = res.total || inferenceLogList.value.length
   } catch (error) {
     console.error('加载推理日志失败', error)
-    ElMessage.error('加载推理日志失败')
+    ElMessage.error('加载推理日志失败，请检查后端服务')
   } finally {
     loading.value = false
   }
@@ -516,21 +516,35 @@ const exportLog = async (type) => {
     }
 
     const res = await exportLogs(type, params)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    
+    // 适配 CSV 类型
+    const blob = new Blob([res], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${type}_log_${new Date().toLocaleDateString()}.xlsx`
+    // 下载后缀改为 csv
+    a.download = `${type}_log_${new Date().toLocaleDateString()}.csv`
+    
+    // 兼容火狐等部分浏览器
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
+    
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('导出日志失败', error)
-    ElMessage.error('导出失败')
+    ElMessage.error('导出失败，请检查后端服务连通性')
   }
 }
 
 onMounted(() => {
+  // 如果是医生角色，可以默认打开"推理日志"面板
+  const userRole = localStorage.getItem('role') || ''
+  if (userRole === 'doctor') {
+    activeTab.value = 'inference'
+  }
+  
   loadLogList()
 })
 </script>
