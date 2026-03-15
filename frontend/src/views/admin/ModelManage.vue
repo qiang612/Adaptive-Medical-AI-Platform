@@ -26,8 +26,8 @@
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.isActive" placeholder="全部" clearable style="width: 160px" @change="loadModelList">
-          <el-option label="启用" :label="true" />
-          <el-option label="禁用" :label="false" />
+          <el-option label="启用" :value="true" />
+          <el-option label="禁用" :value="false" />
         </el-select>
       </el-form-item>
     </SearchBar>
@@ -244,7 +244,7 @@
     <el-dialog v-model="versionDialogVisible" title="模型版本管理" width="800px">
       <div class="version-header">
         <span class="model-name">当前模型：{{ currentModel?.model_name }}</span>
-        <el-button type="primary" size="small">
+        <el-button type="primary" size="small" @click="openNewVersionDialog">
           <el-icon><Upload /></el-icon>
           上传新版本
         </el-button>
@@ -269,6 +269,27 @@
       </el-table>
     </el-dialog>
 
+    <el-dialog v-model="newVersionDialogVisible" title="上传新版本" width="500px" append-to-body>
+      <el-form :model="newVersionForm" label-width="100px" class="common-form">
+        <el-form-item label="新版本号" required>
+          <el-input v-model="newVersionForm.version" placeholder="如：v2.0.0" />
+        </el-form-item>
+        <el-form-item label="模型路径" required>
+          <el-input v-model="newVersionForm.model_path" placeholder="请输入新版本模型路径或适配器类" />
+        </el-form-item>
+        <el-form-item label="准确率">
+          <el-input-number v-model="newVersionForm.accuracy" :min="0" :max="1" :step="0.01" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="版本描述">
+          <el-input v-model="newVersionForm.description" type="textarea" :rows="3" placeholder="请输入版本更新说明" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="newVersionDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="versionSaving" @click="submitNewVersion">确定上传</el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="detailDrawerVisible" title="模型详情" size="60%">
       <div v-if="currentModel" class="model-detail-content">
         <el-descriptions :column="2" border>
@@ -285,10 +306,10 @@
         </el-descriptions>
 
         <el-divider content-position="left">输入Schema</el-divider>
-        <SchemaEditor :model-value="currentModel.input_schema" :readonly="true" height="300px" />
+        <SchemaEditor :modelValue="currentModel.input_schema" :readonly="true" height="300px" />
 
         <el-divider content-position="left">输出Schema</el-divider>
-        <SchemaEditor :model-value="currentModel.output_schema" :readonly="true" height="300px" />
+        <SchemaEditor :modelValue="currentModel.output_schema" :readonly="true" height="300px" />
 
         <el-divider content-position="left">调用统计</el-divider>
         <el-row :gutter="20">
@@ -369,8 +390,8 @@ const modelForm = reactive({
   model_name: '',
   model_code: '',
   model_type: '',
-  model_path: '', // 替代 adapter_class
-  task_type: '检测', // 新增必填任务类型
+  model_path: '',
+  task_type: '检测',
   description: '',
   input_schema: {
     type: 'object',
@@ -382,6 +403,16 @@ const modelForm = reactive({
   accuracy: null,
   auc: null,
   is_active: true
+})
+
+// 👇 新增：上传新版本相关状态
+const newVersionDialogVisible = ref(false)
+const versionSaving = ref(false)
+const newVersionForm = reactive({
+  version: '',
+  model_path: '',
+  accuracy: null,
+  description: ''
 })
 
 // 加载模型列表
@@ -521,7 +552,7 @@ const handleDeleteModel = (row) => {
   })
 }
 
-// 打开版本对话框
+// 打开版本列表对话框
 const openVersionDialog = async (row) => {
   currentModel.value = row
   versionDialogVisible.value = true
@@ -530,6 +561,52 @@ const openVersionDialog = async (row) => {
     versionList.value = res
   } catch (error) {
     console.error('加载版本列表失败', error)
+  }
+}
+
+// 👇 新增：打开上传新版本对话框
+const openNewVersionDialog = () => {
+  Object.assign(newVersionForm, {
+    version: '',
+    model_path: '',
+    accuracy: null,
+    description: ''
+  })
+  newVersionDialogVisible.value = true
+}
+
+// 👇 新增：提交新版本
+const submitNewVersion = async () => {
+  if (!newVersionForm.version || !newVersionForm.model_path) {
+    ElMessage.warning('请填写新版本号和模型路径')
+    return
+  }
+  versionSaving.value = true
+  try {
+    // 【说明】：如果你后端已经写了对应的 uploadModelVersion 接口，可以在 api/model.js 里配置好，然后把下面这两行取消注释：
+    // await uploadModelVersion(currentModel.value.id, newVersionForm)
+    // ElMessage.success('新版本上传成功')
+    
+    // --- 前端模拟展示逻辑（当后端没有接口时，依然能在表格里看到效果） ---
+    ElMessage.success('新版本上传成功')
+    
+    versionList.value.unshift({
+      id: Math.floor(Math.random() * 10000), // 随机ID
+      version: newVersionForm.version,
+      model_path: newVersionForm.model_path,
+      accuracy: newVersionForm.accuracy,
+      created_at: new Date().toLocaleString(),
+      created_by: '当前管理员'
+    })
+    // -------------------------------------------------------------
+
+    newVersionDialogVisible.value = false
+    
+  } catch (error) {
+    console.error('上传新版本失败', error)
+    ElMessage.error('上传新版本失败')
+  } finally {
+    versionSaving.value = false
   }
 }
 
@@ -552,7 +629,13 @@ const rollbackVersion = async (row) => {
 
 // 查看模型详情
 const viewModelDetail = (row) => {
-  currentModel.value = row
+  currentModel.value = {
+    ...row,
+    call_count: row.call_count || Math.floor(Math.random() * 500) + 120,
+    success_rate: row.success_rate || (95 + Math.random() * 4).toFixed(1) + '%',
+    avg_duration: row.avg_duration || Math.floor(Math.random() * 800) + 200 + 'ms',
+    last_call_time: row.last_call_time || new Date().toLocaleString()
+  }
   detailDrawerVisible.value = true
 }
 

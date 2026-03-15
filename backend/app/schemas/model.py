@@ -20,10 +20,18 @@ class ModelCreate(ModelBase):
     pass
 
 class ModelUpdate(BaseModel):
+    # 👇 补充所有在前端编辑表单中可能被修改的字段
+    model_name: Optional[str] = None
+    model_code: Optional[str] = None
+    model_type: Optional[str] = None
+    task_type: Optional[str] = None
+    model_path: Optional[str] = None
     description: Optional[str] = None
     input_schema: Optional[Dict[str, Any]] = None
     output_schema: Optional[Dict[str, Any]] = None
     model_version: Optional[str] = None
+    accuracy: Optional[float] = None     # 🔥 修复：允许更新准确率
+    auc: Optional[float] = None          # 🔥 修复：允许更新 AUC
     is_active: Optional[bool] = None
 
 class ModelResponse(ModelBase):
