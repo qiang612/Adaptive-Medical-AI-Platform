@@ -109,7 +109,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="model_version" label="版本" width="100" />
-        <el-table-column prop="adapter_class" label="适配器类" show-overflow-tooltip />
+        <el-table-column prop="model_path" label="模型路径" show-overflow-tooltip />
         <el-table-column prop="accuracy" label="准确率" width="100">
           <template #default="{ row }">
             {{ row.accuracy ? (row.accuracy * 100).toFixed(2) + '%' : '-' }}
@@ -125,7 +125,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="create_time" label="创建时间" width="180" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="viewModelDetail(row)">详情</el-button>
@@ -176,8 +176,8 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              <el-form-item label="适配器类" required>
-                <el-input v-model="modelForm.adapter_class" placeholder="app.ai_adapters.xxx" />
+              <el-form-item label="模型路径" required>
+                <el-input v-model="modelForm.model_path" placeholder="请输入模型路径或适配器类" />
               </el-form-item>
               <el-form-item label="模型描述">
                 <el-input v-model="modelForm.description" type="textarea" :rows="3" placeholder="请输入模型描述" />
@@ -276,11 +276,11 @@
           <el-descriptions-item label="模型编码">{{ currentModel.model_code }}</el-descriptions-item>
           <el-descriptions-item label="模型类型">{{ currentModel.model_type }}</el-descriptions-item>
           <el-descriptions-item label="当前版本">{{ currentModel.model_version }}</el-descriptions-item>
-          <el-descriptions-item label="适配器类" :span="2">{{ currentModel.adapter_class }}</el-descriptions-item>
+          <el-descriptions-item label="模型路径" :span="2">{{ currentModel.model_path }}</el-descriptions-item>
           <el-descriptions-item label="准确率">{{ currentModel.accuracy ? (currentModel.accuracy * 100).toFixed(2) + '%' : '-' }}</el-descriptions-item>
           <el-descriptions-item label="AUC值">{{ currentModel.auc ? (currentModel.auc * 100).toFixed(2) + '%' : '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentModel.created_at }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ currentModel.updated_at }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ currentModel.create_time }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ currentModel.update_time || '-' }}</el-descriptions-item>
           <el-descriptions-item label="模型描述" :span="2">{{ currentModel.description || '暂无' }}</el-descriptions-item>
         </el-descriptions>
 
@@ -363,15 +363,20 @@ const pagination = reactive({
   total: 0
 })
 
-// 模型表单
+// 模型表单 (更新字段，对齐后端)
 const modelForm = reactive({
   id: null,
   model_name: '',
   model_code: '',
   model_type: '',
-  adapter_class: '',
+  model_path: '', // 替代 adapter_class
+  task_type: '检测', // 新增必填任务类型
   description: '',
-  input_schema: {},
+  input_schema: {
+    type: 'object',
+    properties: {},
+    required: []
+  },
   output_schema: {},
   model_version: '1.0.0',
   accuracy: null,
@@ -430,7 +435,8 @@ const openModelDialog = (row = null) => {
       model_name: '',
       model_code: '',
       model_type: '',
-      adapter_class: '',
+      model_path: '',
+      task_type: '检测',
       description: '',
       input_schema: {
         type: 'object',
@@ -450,7 +456,7 @@ const openModelDialog = (row = null) => {
 
 // 保存模型
 const saveModel = async () => {
-  if (!modelForm.model_name || !modelForm.model_code || !modelForm.model_type || !modelForm.adapter_class) {
+  if (!modelForm.model_name || !modelForm.model_code || !modelForm.model_type || !modelForm.model_path) {
     ElMessage.warning('请填写基础配置必填项')
     activeDialogTab.value = 'basic'
     return

@@ -14,6 +14,7 @@ class ModelBase(BaseModel):
     output_schema: Dict[str, Any]
     model_version: str = "1.0.0"
     accuracy: Optional[float] = None     # 加上数据库已有的 accuracy
+    auc: Optional[float] = None
 
 class ModelCreate(ModelBase):
     pass
