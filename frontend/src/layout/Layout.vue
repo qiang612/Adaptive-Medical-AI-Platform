@@ -89,7 +89,7 @@
         
         <div class="header-right">
           <el-badge :value="unreadTasks" :hidden="unreadTasks === 0" class="task-badge" type="danger">
-            <el-icon class="header-icon" @click="$router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')">
+            <el-icon class="header-icon" @click="handleBellClick">
               <Bell />
             </el-icon>
           </el-badge>
@@ -146,6 +146,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
 import { useAppStore } from '@/store/modules/app'
 import { ElMessageBox, ElMessage, ElNotification } from 'element-plus'
+import request from '@/api/index' // 假设你项目里有统一的 request 请求工具，没有的话可以使用 axios 或 fetch
 
 const router = useRouter()
 const route = useRoute()
@@ -158,31 +159,64 @@ const passwordDialogVisible = ref(false)
 const passwordFormRef = ref(null)
 const passwordLoading = ref(false)
 
-// 新增：任务通知状态
+// 任务通知状态
 const unreadTasks = ref(0)
-let wsMockTimer = null
+let pollingTimer = null
 
-// 模拟WebSocket实时通知后端Celery任务完成 (答辩演示利器)
+// 🔥 新增：向后端获取真实未读通知数量 🔥
+const fetchUnreadCount = async () => {
+  try {
+    // 这里的接口路径对应你后端的 @router.get("/unread-count")
+    // 如果你没有封装统一的 request，这里可以用 fetch:
+    // const res = await fetch('/api/v1/notifications/unread-count', { headers: { Authorization: 'Bearer ' + userStore.token }})
+    // const data = await res.json()
+    // unreadTasks.value = data.count
+    
+    const res = await request.get('/notifications/unread-count')
+    
+    // 如果发现数量增加了，弹出提示框 (可选，为了增加交互体验)
+    if (res.data?.count > unreadTasks.value) {
+      ElNotification({
+        title: '新通知',
+        message: '您的AI推理任务有了新进展，请点击铃铛查看。',
+        type: 'success',
+        duration: 3000
+      })
+    }
+    
+    unreadTasks.value = res.data?.count || 0
+  } catch (error) {
+    console.error('获取未读通知失败:', error)
+  }
+}
+
+// 🔥 新增：点击小铃铛的逻辑 (清空数量并跳转) 🔥
+const handleBellClick = async () => {
+  // 1. 根据角色跳转到对应的任务页面
+  router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')
+  
+  // 2. 如果当前有未读消息，调用后端一键已读接口
+  if (unreadTasks.value > 0) {
+    try {
+      // 对应后端的 @router.post("/read-all")
+      await request.post('/notifications/read-all')
+      // 接口调用成功后，本地小红点清零
+      unreadTasks.value = 0
+    } catch (error) {
+      console.error('标记已读失败:', error)
+    }
+  }
+}
+
+// 初始化真实的后台轮询
 const initTaskNotification = () => {
-  // 真实环境中这里替换为 WebSocket 连接：
-  // const ws = new WebSocket('ws://localhost:8000/api/v1/ws/notifications')
-  // ws.onmessage = (event) => { ... }
-
-  // 模拟轮询/推送：为了演示AI异步任务处理完毕后的全局触达
-  wsMockTimer = setInterval(() => {
-    unreadTasks.value += 1
-    ElNotification({
-      title: 'AI推理任务已完成',
-      message: '您提交的患者影像诊断任务已生成报告，请点击查看详细的病灶标注与风险评估。',
-      type: 'success',
-      duration: 6000,
-      onClick: () => {
-        // 点击通知后跳转到对应的任务列表，并清除未读数
-        router.push(userStore.userInfo?.role === 'admin' ? '/admin/tasks' : '/tasks')
-        unreadTasks.value = Math.max(0, unreadTasks.value - 1)
-      }
-    })
-  }, 120000) // 每两分钟模拟一次推送 (答辩演示时可改短，比如 30000 代表30秒)
+  // 刚进页面时，先查一次
+  fetchUnreadCount()
+  
+  // 每隔 30 秒向后端轮询一次真实未读数据 (可根据需要调整时间)
+  pollingTimer = setInterval(() => {
+    fetchUnreadCount()
+  }, 30000)
 }
 
 // 面包屑计算逻辑
@@ -201,7 +235,6 @@ const passwordForm = reactive({
   confirmPassword: ''
 })
 
-// 密码校验规则
 const validateConfirmPassword = (rule, value, callback) => {
   if (value !== passwordForm.newPassword) {
     callback(new Error('两次输入的密码不一致'))
@@ -222,12 +255,10 @@ const passwordRules = {
   ]
 }
 
-// 切换侧边栏折叠
 const toggleCollapse = () => {
   appStore.toggleCollapse()
 }
 
-// 下拉菜单操作
 const handleCommand = (command) => {
   switch (command) {
     case 'profile':
@@ -242,7 +273,6 @@ const handleCommand = (command) => {
   }
 }
 
-// 退出登录
 const handleLogout = () => {
   ElMessageBox.confirm('确定要退出登录吗?', '提示', {
     confirmButtonText: '确定',
@@ -255,7 +285,6 @@ const handleLogout = () => {
   })
 }
 
-// 提交修改密码
 const handlePasswordSubmit = async () => {
   await passwordFormRef.value.validate()
   passwordLoading.value = true
@@ -273,13 +302,13 @@ onMounted(async () => {
   if (!userStore.userInfo) {
     await userStore.getUserInfo()
   }
-  // 初始化全局任务推送通知
+  // 初始化全局任务真实数据轮询
   initTaskNotification()
 })
 
 // 组件销毁前清除定时器避免内存泄漏
 onBeforeUnmount(() => {
-  if (wsMockTimer) clearInterval(wsMockTimer)
+  if (pollingTimer) clearInterval(pollingTimer)
 })
 </script>
 
@@ -327,7 +356,6 @@ onBeforeUnmount(() => {
   height: 64px;
 }
 
-/* 顶部左侧：折叠和面包屑布局 */
 .header-left {
   display: flex;
   align-items: center;
@@ -349,7 +377,6 @@ onBeforeUnmount(() => {
   color: var(--primary-color);
 }
 
-/* 顶部右侧：铃铛和头像布局 */
 .header-right {
   display: flex;
   align-items: center;
@@ -394,7 +421,6 @@ onBeforeUnmount(() => {
   height: calc(100vh - 64px);
 }
 
-/* 页面过渡动画 */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
   transition: all 0.3s ease;

@@ -7,6 +7,9 @@ import traceback
 import sys
 import socket  # 🔥 新增导入：用于获取当前物理机/容器的主机名 🔥
 
+# 🔥 新增导入：引入通知模型和枚举类型 🔥
+from app.models.notification import Notification, NotificationType
+
 # 🔥 移除顶部的从 task_service 和 database 导入，避免循环依赖 🔥
 
 class InferenceService:
@@ -69,6 +72,23 @@ class InferenceService:
                     status="completed",
                     result=result
                 )
+
+                # ==========================================
+                # 🔥 新增逻辑：在任务完成后，向数据库写入通知消息
+                # ==========================================
+                try:
+                    patient_info = task.patient_name or "未知患者"
+                    new_notice = Notification(
+                        doctor_id=task.user_id,  # 注意：InferenceTask 表里存的是 user_id
+                        title="任务完成通知",
+                        content=f"您提交的【{patient_info}】病例检测任务已完成，请点击查看详细报告。",
+                        notification_type=NotificationType.TASK_COMPLETE,
+                        related_task_id=task.id
+                    )
+                    db.add(new_notice)
+                    db.commit()
+                except Exception as notice_err:
+                    print(f"写入通知记录失败: {str(notice_err)}")
 
             except Exception as e:
                 # 捕获推理过程中的算法异常或路径错误

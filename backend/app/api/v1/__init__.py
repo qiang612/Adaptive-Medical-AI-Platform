@@ -4,6 +4,7 @@ from app.api.v1 import roles
 from app.api.v1 import users, models, tasks, inference, roles, patients, statistics, teaching
 from app.api.v1 import system
 from app.api.v1 import logs
+from app.api.v1 import notifications
 api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(users.router)
@@ -16,3 +17,4 @@ api_router.include_router(statistics.router, prefix="/statistics", tags=["Statis
 api_router.include_router(teaching.router)
 api_router.include_router(system.router)
 api_router.include_router(logs.router, prefix="/logs")
+api_router.include_router(notifications.router)
