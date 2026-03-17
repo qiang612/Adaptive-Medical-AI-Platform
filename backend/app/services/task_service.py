@@ -9,6 +9,9 @@ from datetime import datetime
 import uuid
 import os
 
+# 🔥 新增：导入 UploadFile 数据库实体及文件类型枚举
+from app.models.upload_file import UploadFile, FileType
+
 # 这个导入保留在顶部即可
 from app.services.inference_service import inference_service
 
@@ -87,7 +90,12 @@ class TaskService:
             "items": paginated_items
         }
 
-    def create_task(self, db: Session, task_in: TaskCreate, user_id: int, file_paths: list = []):
+    # 🔥 修改处：新增 file_infos 参数
+    def create_task(self, db: Session, task_in: TaskCreate, user_id: int, file_paths: list = [],
+                    file_infos: list = None):
+        if file_infos is None:
+            file_infos = []
+
         task_id_str = str(uuid.uuid4())
         db_task = InferenceTask(
             task_id=task_id_str,
@@ -101,6 +109,40 @@ class TaskService:
             start_time=datetime.now()
         )
         db.add(db_task)
+        db.flush()  # 🔥 核心修复：刷新会话以获取自增的 db_task.id，但暂时不提交事务
+
+        # 🔥 新增：将文件详细信息存入 upload_files 数据库表中
+        for info in file_infos:
+            file_name = info["file_name"]
+            file_path = info["file_path"]
+
+            # 提取文件后缀名以区分类型
+            file_ext = os.path.splitext(file_name)[-1].lower().replace('.', '')
+
+            if file_ext in ['jpg', 'jpeg', 'png']:
+                f_type = FileType.IMAGE
+            elif file_ext in ['dcm', 'dicom']:
+                f_type = FileType.DICOM
+            elif file_ext in ['xls', 'xlsx', 'csv']:
+                f_type = FileType.EXCEL
+            else:
+                f_type = FileType.IMAGE  # 默认兜底类型
+
+            # 计算已经保存在磁盘的文件大小
+            file_size = 0
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+
+            # 创建关联记录
+            upload_record = UploadFile(
+                file_name=file_name,
+                file_path=file_path,
+                file_type=f_type,
+                file_size=file_size,
+                task_id=db_task.id  # 关联外键（该任务刚刚在上一行生成的ID）
+            )
+            db.add(upload_record)
+
         db.commit()
         db.refresh(db_task)
         return db_task

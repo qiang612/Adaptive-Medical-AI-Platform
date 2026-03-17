@@ -215,6 +215,7 @@ async def create_task(
     """创建推理任务（支持文件上传）"""
     # 处理文件上传
     file_paths = []
+    file_infos = []  # 🔥 新增：收集原文件信息供数据库记录
     for file in files:
         if file.filename:
             # 生成唯一文件名
@@ -226,6 +227,12 @@ async def create_task(
             with open(file_path, "wb") as f:
                 f.write(await file.read())
             file_paths.append(file_path)
+
+            # 🔥 新增：将原始文件名和路径存入 file_infos，传给 service 层
+            file_infos.append({
+                "file_name": file.filename,
+                "file_path": file_path
+            })
 
     # 解析输入数据（JSON字符串转字典）
     input_data_dict = {}
@@ -246,7 +253,8 @@ async def create_task(
         db,
         task_in=task_in,
         user_id=current_user.id,
-        file_paths=file_paths
+        file_paths=file_paths,
+        file_infos=file_infos  # 🔥 新增：把收集好的文件详情传给下层
     )
 
     # 异步执行推理任务
