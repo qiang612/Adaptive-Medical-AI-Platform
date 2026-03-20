@@ -171,6 +171,24 @@ class MedicalReportGenerator:
                     story.append(img)
                     story.append(Spacer(1, 10))
 
+            # 🔥 新增：在 PDF 影像或表格下方直接附带详细的图像分析与诊断建议 🔥
+            if 'image_analysis' in self.result:
+                story.append(Spacer(1, 5))
+                story.append(Paragraph("<b><font color='darkblue'>AI 影像辅助诊断与详细临床建议:</font></b>",
+                                       self.styles['ChineseNormal']))
+                analysis_lines = self.result['image_analysis'].split('\n')
+                for line in analysis_lines:
+                    if line.strip():
+                        # 使用 &nbsp; 替换空格，以确保 PDF 渲染时保留左侧缩进，使排版更美观
+                        formatted_line = line.replace('  ', '&nbsp;&nbsp;')
+
+                        # 识别带【】的标题行为加粗显示
+                        if '【' in formatted_line:
+                            formatted_line = f"<b>{formatted_line}</b>"
+
+                        story.append(Paragraph(formatted_line, self.styles['ChineseNormal']))
+                story.append(Spacer(1, 10))
+
         # 4. 医疗建议
         story.append(Paragraph("三、医疗建议", self.styles['ChineseHeading']))
         recommendation = self.result.get('recommendation', '建议咨询专业医生')

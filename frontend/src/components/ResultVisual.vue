@@ -55,6 +55,17 @@
         </el-table-column>
         <el-table-column prop="size" label="病灶大小" width="120" />
       </el-table>
+
+      <div v-if="result.image_analysis" class="image-analysis-box mt-15">
+        <h5 class="analysis-title"><el-icon><Monitor /></el-icon> AI 影像辅助诊断与详细临床建议</h5>
+        <div class="analysis-content">
+          <p v-for="(line, index) in result.image_analysis.split('\n')" 
+             :key="index" 
+             :class="{'bold-title': line.includes('【')}">
+            {{ line }}
+          </p>
+        </div>
+      </div>
     </div>
 
     <div v-if="result.risk_score !== undefined" class="chart-box common-card">
@@ -393,5 +404,38 @@ h4 {
 
 .mb-20 {
   margin-bottom: 20px;
+}
+
+/* 👇 新增的 AI 辅助诊断文字建议样式 👇 */
+.image-analysis-box {
+  margin-top: 15px;
+  padding: 16px;
+  background-color: var(--el-fill-color-light); /* 适配深浅色模式 */
+  border-radius: 8px;
+  border-left: 4px solid var(--el-color-primary);
+}
+.analysis-title {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.analysis-content p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+  white-space: pre-wrap; /* 关键：保留后端的空格缩进效果 */
+}
+.analysis-content p.bold-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-top: 10px;
+}
+.mt-15 { 
+  margin-top: 15px; 
 }
 </style>
