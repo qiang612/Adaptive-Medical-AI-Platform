@@ -17,7 +17,7 @@ from datetime import timedelta
 # 强制创建所有表（检测到模型并在 medical_ai_db 中生成）
 # checkfirst=True：避免重复创建，已存在则跳过
 Base.metadata.create_all(bind=engine, checkfirst=True)
-print("✅ 数据库表检查完成：已自动创建缺失的表")
+# print("✅ 数据库表检查完成：已自动创建缺失的表")
 
 # ===================== 自动创建默认账号 =====================
 from app.models import User, UserRole

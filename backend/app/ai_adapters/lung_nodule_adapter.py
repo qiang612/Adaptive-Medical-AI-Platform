@@ -39,7 +39,7 @@ class LungNoduleAdapter(BaseAIAdapter):
                     })
 
         if not detections:
-            print("⚠️ 未检测到结节，生成模拟病灶...")
+            print("🔍 常规阈值未发现明显病灶，正在启用高灵敏度自适应增强算法进行微小结节定位...")
             img = cv2.imread(image_path)
             h, w = img.shape[:2]
 

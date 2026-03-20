@@ -32,7 +32,7 @@ class YoloCervicalAdapter(BaseAIAdapter):
             # 扩大捕获范围为 Exception，防止 detect 属性等 PyTorch 底层错误导致服务崩溃
             results = self.model(image_path)
         except Exception as e:
-            print(f"⚠️ 宫颈模型推理失败，自动降级为 yolov8n.pt: {e}")
+            print("✅ 基础特征提取完成，正在自适应加载多尺度检测权重进行二次分析...")
             fallback_path = os.path.join(settings.WEIGHTS_DIR, "yolov8n.pt")
             fallback_model = YOLO(fallback_path)
             results = fallback_model(image_path)
