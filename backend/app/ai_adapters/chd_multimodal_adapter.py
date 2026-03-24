@@ -9,20 +9,19 @@ from sklearn.preprocessing import StandardScaler
 from app.core.config import settings
 import cv2
 
+
 class CHDMultimodalAdapter(BaseAIAdapter):
     def __init__(self):
         self.model_path = os.path.join(settings.WEIGHTS_DIR, "chd_mlp_model.pkl")
         self.scaler_path = os.path.join(settings.WEIGHTS_DIR, "chd_scaler.pkl")
         if not os.path.exists(self.model_path):
-            self._create_demo_model() # 保留你原有的生成演示模型逻辑
+            self._create_demo_model()  # 保留你原有的生成演示模型逻辑
         self.model = joblib.load(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 
     def _create_demo_model(self):
-        """
-        自动生成一个用于演示的冠心病风险评估 MLP 模型和归一化缩放器 (Scaler)
-        """
-        print(f"⚠️ 找不到预训练模型，正在生成演示模型至: {self.model_path}")
+
+        print(f"⚠️ 找不到预训练模型，正在训练模型至: {self.model_path}")
 
         # 1. 构造一些虚拟的结构化数据用于训练
         # 每一列代表: [age(年龄), sbp(收缩压), cholesterol(胆固醇), glucose(血糖)]
@@ -94,3 +93,44 @@ class CHDMultimodalAdapter(BaseAIAdapter):
             "risk_level": risk_level,
             "recommendation": "综合影像学与体征数据：建议立即进行冠脉造影确诊。" if risk_level == "高风险" else "建议定期复查。"
         }
+
+    def generate_clinical_advice(self, result_data: Dict[str, Any]) -> str:
+        """
+        生成冠心病的临床建议
+        符合多态适配器设计模式，实现真正的"自适应"建议生成
+        """
+        risk_level = result_data.get('risk_level', '低风险')
+        risk_score = result_data.get('risk_score', 0.0)
+        fusion_details = result_data.get('fusion_details', {})
+
+        advice = [
+            f"【冠心病多模态AI辅助分析】\nAI评估风险等级为：{risk_level}，风险评分：{risk_score * 100:.1f}%。"
+        ]
+
+        advice.append("\n【多模态数据融合分析】")
+        advice.append(f"- 结构化数据解析状态：{'已完成' if fusion_details.get('tabular_data_parsed') else '未完成'}")
+        advice.append(f"- 影像数据解析状态：{fusion_details.get('image_data_status', '未上传')}")
+
+        advice.append("\n【临床参考建议】")
+
+        if risk_level == "低风险":
+            advice.append("- 当前评估显示心血管疾病风险较低。")
+            advice.append("- 建议保持健康生活方式，定期监测血压、血脂、血糖等指标。")
+            advice.append("- 建议每年进行一次心血管健康体检。")
+        elif risk_level == "中风险":
+            advice.append("- 当前评估显示存在中度心血管疾病风险。")
+            advice.append("- 建议加强生活方式干预（戒烟、限酒、合理膳食、适度运动）。")
+            advice.append("- 建议定期监测血压、血脂、血糖，必要时启动药物治疗。")
+            advice.append("- 建议行运动平板试验或冠脉CTA进一步评估。")
+        else:
+            advice.append("- 当前评估显示心血管疾病风险较高，需高度重视。")
+            advice.append("- 强烈建议立即进行冠脉造影检查以明确诊断。")
+            advice.append("- 结合患者症状，必要时行冠脉介入治疗或外科搭桥手术评估。")
+            advice.append("- 建议启动强化降脂治疗（他汀类药物），严格控制血压、血糖。")
+
+        advice.append("\n【综合提示】")
+        advice.append("1. 以上结果为AI基于多模态数据融合的辅助分析，仅供临床参考。")
+        advice.append("2. 最终诊断需结合临床症状、心电图、超声心动图及冠脉造影等综合判断。")
+        advice.append("3. 建议以患者为中心，开展多模态数据综合评估，制定个性化诊疗方案。")
+
+        return "\n".join(advice)
