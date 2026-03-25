@@ -5,9 +5,10 @@ from typing import List, Dict, Any
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.security import get_current_user  # 如果有 get_current_admin_user 可以用那个
+from app.core.security import get_current_user
 from app.models.system import SystemConfig, NoticeTemplate
 from app.schemas.system import NoticeTemplateCreate, NoticeTemplateUpdate, NoticeTemplateResponse, EmailTestRequest
+from app.core.celery_app import celery
 
 router = APIRouter(prefix="/system", tags=["系统设置"])
 
@@ -109,3 +110,42 @@ def delete_notice_template(tmpl_id: int, db: Session = Depends(get_db), current_
 def test_email_notice(data: EmailTestRequest, current_user=Depends(get_current_user)):
     # 这里仅做模拟占位，后续可接入真实的 SMTP 推送逻辑
     return {"message": f"测试邮件任务已生成，目标邮箱：{data.to_email}"}
+
+
+# ==================== 5. Celery 队列状态监控 ====================
+@router.get("/queue-status")
+def get_queue_status(current_user=Depends(get_current_user)):
+    """
+    获取 Celery 任务队列状态
+    用于管理员在 SystemSetting / TaskMonitor.vue 面板展示
+    """
+    try:
+        i = celery.control.inspect()
+        if not i:
+            return {
+                "active": None,
+                "reserved": None,
+                "workers": [],
+                "status": "unavailable",
+                "message": "Celery inspect 对象不可用，请检查 Celery Worker 是否启动"
+            }
+        
+        active_tasks = i.active()
+        reserved_tasks = i.reserved()
+        ping_result = i.ping()
+        
+        return {
+            "active": active_tasks,
+            "reserved": reserved_tasks,
+            "workers": list(ping_result.keys()) if ping_result else [],
+            "status": "online" if ping_result else "offline",
+            "message": "Celery 队列运行正常" if ping_result else "无可用 Worker"
+        }
+    except Exception as e:
+        return {
+            "active": None,
+            "reserved": None,
+            "workers": [],
+            "status": "error",
+            "message": f"获取队列状态失败: {str(e)}"
+        }

@@ -6,8 +6,22 @@ import importlib
 import traceback
 import sys
 import socket
+import json
+import redis
 
 from app.models.notification import Notification, NotificationType
+
+
+def get_redis_client():
+    redis_url = settings.REDIS_URL
+    if redis_url.startswith('redis://'):
+        redis_url = redis_url.replace('redis://', '')
+    parts = redis_url.split('/')
+    db = int(parts[1]) if len(parts) > 1 else 0
+    host_port = parts[0].split(':')
+    host = host_port[0]
+    port = int(host_port[1]) if len(host_port) > 1 else 6379
+    return redis.Redis(host=host, port=port, db=db)
 
 
 class InferenceService:
@@ -22,6 +36,8 @@ class InferenceService:
             if not task:
                 return
 
+            user_id = task.user_id
+
             try:
                 current_worker = socket.gethostname()
                 task.worker_name = current_worker
@@ -30,6 +46,7 @@ class InferenceService:
                 print(f"获取或更新 worker_name 失败: {e}")
 
             task_service.update_task_status(db, task_id=task_id, status="processing")
+            self._send_ws_notification(user_id, task.task_id, "processing")
 
             model = task_service.get_model_by_id(db, model_id=task.model_id)
             if not model:
@@ -38,6 +55,7 @@ class InferenceService:
                     status="failed",
                     error_msg="模型不存在"
                 )
+                self._send_ws_notification(user_id, task.task_id, "failed", {"error": "模型不存在"})
                 return
 
             try:
@@ -64,6 +82,8 @@ class InferenceService:
                     result=result
                 )
 
+                self._send_ws_notification(user_id, task.task_id, "completed", result)
+
                 try:
                     patient_info = task.patient_name or "未知患者"
                     new_notice = Notification(
@@ -85,8 +105,24 @@ class InferenceService:
                     status="failed",
                     error_msg=error_msg
                 )
+                self._send_ws_notification(user_id, task.task_id, "failed", {"error": str(e)})
         finally:
             db.close()
+
+    def _send_ws_notification(self, user_id: int, task_id: str, status: str, result: dict = None):
+        try:
+            r = get_redis_client()
+            message = json.dumps({
+                "type": "task_update",
+                "user_id": user_id,
+                "task_id": task_id,
+                "status": status,
+                "result": result
+            })
+            r.publish(f"task_updates:{user_id}", message)
+            r.publish("task_updates:all", message)
+        except Exception as e:
+            print(f"发送WebSocket通知失败: {e}")
 
 
 inference_service = InferenceService()
@@ -94,8 +130,4 @@ inference_service = InferenceService()
 
 @shared_task(bind=True, name="run_inference_task", max_retries=3)
 def run_inference_task(self, task_id: int):
-    """
-    接收来自 FastAPI 的任务派发。
-    因为是在独立进程运行，所以只传递 task_id，其余数据全部在 run_inference 中现查库获取。
-    """
     inference_service.run_inference(task_id)

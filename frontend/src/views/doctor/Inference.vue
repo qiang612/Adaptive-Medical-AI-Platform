@@ -112,7 +112,6 @@
 
                 <div v-show="currentImage" class="preview-area">
                   <img :src="currentImage" class="preview-image" alt="医学影像预览" />
-                  <canvas ref="resultCanvas" class="result-canvas"></canvas>
                   <div class="preview-actions">
                     <el-tooltip content="清除并重新上传" placement="left">
                       <el-button type="danger" circle icon="Delete" @click="clearImage" />
@@ -293,6 +292,7 @@ const extraFileList = ref([]) // Excel等附加文件
 const submitting = ref(false)
 const recentTasks = ref([])
 let pollTimer = null // 用于保存轮询定时器
+let polling = false // 轮询控制标志，防止请求堆积
 
 // 影像预览专用状态
 const imageLoading = ref(false)
@@ -371,17 +371,22 @@ const loadRecentTasks = async () => {
   }
 }
 
-// 轮询刷新机制：如果有正在处理中的任务，每3秒去查一次状态
-const startPolling = () => {
-  if (pollTimer) clearInterval(pollTimer)
-  pollTimer = setInterval(async () => {
+// 轮询刷新机制：使用递归setTimeout确保上一次请求完成后再发起下一次，避免请求堆积
+const startPolling = async () => {
+  if (polling) return
+  polling = true
+  
+  const poll = async () => {
+    if (!polling) return
     const hasProcessing = recentTasks.value.some(t => t.status === 'pending' || t.status === 'processing')
     if (hasProcessing) {
       await loadRecentTasks()
+      pollTimer = setTimeout(poll, 3000)
     } else {
-      clearInterval(pollTimer)
+      polling = false
     }
-  }, 3000)
+  }
+  poll()
 }
 
 // 核心自适应逻辑：模型切换时清空旧数据
@@ -572,7 +577,8 @@ onMounted(async () => {
 
 // 组件销毁时清除定时器，避免内存泄漏
 onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
+  polling = false
+  if (pollTimer) clearTimeout(pollTimer)
 })
 </script>
 

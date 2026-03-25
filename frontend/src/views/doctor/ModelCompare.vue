@@ -127,7 +127,17 @@
         </div>
       </div>
 
-      <div v-if="activeStep === 2" class="step-container result-container">
+      <div v-show="submitting && activeStep !== 2" class="step-container loading-container">
+        <div class="loading-wrapper">
+          <el-icon class="loading-icon" :size="60"><Loading /></el-icon>
+          <h3>AI模型正在分析中...</h3>
+          <p class="loading-tip">已提交 {{ selectedModelIds.length }} 个模型的推理任务，请稍候</p>
+          <el-progress :percentage="pollProgress" :stroke-width="10" :show-text="false" />
+          <p class="progress-text">{{ pollProgressText }}</p>
+        </div>
+      </div>
+
+      <div v-if="activeStep === 2 && !submitting" class="step-container result-container">
         <div class="compare-header-actions">
           <el-button type="primary" plain @click="resetForm">
             <el-icon><RefreshLeft /></el-icon> 开启新一轮对比
@@ -252,7 +262,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import ResultVisual from '@/components/ResultVisual.vue'
 import { getActiveModels } from '@/api/model'
 import { getPatients } from '@/api/patient'
-import { batchInference, exportCompareReport } from '@/api/inference'
+import { batchInference, exportCompareReport, getBatchStatus, getBatchResults } from '@/api/inference'
 
 use([
   CanvasRenderer,
@@ -274,6 +284,8 @@ const selectedModelIds = ref([])
 const compareResults = ref([])
 const detailDialogVisible = ref(false)
 const currentResult = ref(null)
+const pollProgress = ref(0)
+const pollProgressText = ref('正在初始化...')
 
 // 病例表单
 const caseForm = reactive({
@@ -366,6 +378,7 @@ const startCompare = async () => {
     return
   }
   submitting.value = true
+  
   try {
     const params = {
       model_ids: selectedModelIds.value,
@@ -385,17 +398,76 @@ const startCompare = async () => {
     }
 
     const res = await batchInference(params)
-    compareResults.value = res.results || []
-
-    updateConsensusChart()
-    ElMessage.success('对比诊断完成')
-    activeStep.value = 2 // 跳转到结果步
+    
+    if (res.tasks && res.tasks.length > 0) {
+      const batchId = res.batch_id
+      const taskIdList = res.tasks.map(t => t.task_id)
+      const taskIdsStr = taskIdList.join(',')
+      
+      ElMessage.info(`已提交 ${res.total_tasks} 个推理任务，正在处理中...`)
+      
+      await pollBatchResults(batchId, taskIdsStr, taskIdList)
+    } else {
+      ElMessage.warning('没有可用的模型进行推理')
+      submitting.value = false
+    }
   } catch (error) {
     console.error('对比诊断失败', error)
-    ElMessage.error('对比诊断失败')
-  } finally {
+    ElMessage.error(error.response?.data?.detail || '对比诊断失败')
     submitting.value = false
   }
+}
+
+const pollBatchResults = async (batchId, taskIdsStr, taskIdList) => {
+  const maxAttempts = 60
+  const pollInterval = 2000
+  let attempts = 0
+  
+  pollProgress.value = 0
+  pollProgressText.value = '正在初始化推理任务...'
+  
+  const poll = async () => {
+    attempts++
+    
+    try {
+      const statusRes = await getBatchStatus(batchId, taskIdsStr)
+      
+      const completedCount = statusRes.completed_count || 0
+      const totalCount = statusRes.total_count || taskIdList.length
+      pollProgress.value = Math.min(95, Math.round((completedCount / totalCount) * 100))
+      pollProgressText.value = `已完成 ${completedCount}/${totalCount} 个模型推理`
+      
+      if (statusRes.all_completed || attempts >= maxAttempts) {
+        pollProgress.value = 100
+        pollProgressText.value = '正在汇总结果...'
+        
+        const resultsRes = await getBatchResults(batchId, taskIdsStr)
+        compareResults.value = resultsRes.results || []
+        
+        if (compareResults.value.length > 0) {
+          updateConsensusChart()
+          ElMessage.success('对比诊断完成')
+          activeStep.value = 2
+        } else {
+          ElMessage.warning('推理完成但未获取到有效结果')
+        }
+        submitting.value = false
+      } else {
+        setTimeout(poll, pollInterval)
+      }
+    } catch (error) {
+      console.error('轮询状态失败', error)
+      if (attempts >= maxAttempts) {
+        ElMessage.error('推理超时，请稍后查看任务列表')
+        submitting.value = false
+      } else {
+        pollProgressText.value = `网络异常，正在重试 (${attempts}/${maxAttempts})...`
+        setTimeout(poll, pollInterval)
+      }
+    }
+  }
+  
+  await poll()
 }
 
 // 更新饼图逻辑
@@ -534,6 +606,41 @@ onMounted(() => {
   margin-top: 40px;
   padding-top: 20px;
   border-top: 1px dashed var(--el-border-color-lighter);
+}
+
+/* 加载中状态 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+.loading-wrapper {
+  text-align: center;
+  max-width: 400px;
+}
+.loading-icon {
+  color: var(--el-color-primary);
+  animation: spin 1.5s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.loading-wrapper h3 {
+  color: var(--el-text-color-primary);
+  margin-bottom: 12px;
+}
+.loading-tip {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+.progress-text {
+  color: var(--el-color-primary);
+  font-size: 14px;
+  margin-top: 12px;
 }
 
 /* 第二步：模型选择卡片 */
