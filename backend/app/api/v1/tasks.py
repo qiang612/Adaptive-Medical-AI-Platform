@@ -1,5 +1,5 @@
 # backend/app/api/v1/tasks.py
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import List, Optional
@@ -15,8 +15,9 @@ from app.core.config import settings
 from app.schemas.task import TaskCreate, TaskResponse, TaskListResponse
 from app.services.task_service import task_service
 from app.services.inference_service import run_inference_task
+from app.utils.log_utils import get_client_ip, create_operation_log
+from app.models.operation_log import OperationType
 
-# 补充缺失的模型引入
 from app.models.inference_task import InferenceTask
 from app.models.model_registry import ModelRegistry
 from app.models.user import User
@@ -320,37 +321,33 @@ def get_task(
 
 @router.post("/", response_model=TaskResponse)
 async def create_task(
+        request: Request,
         model_id: int = Form(...),
         patient_name: Optional[str] = Form(None),
         patient_id: Optional[str] = Form(None),
-        input_data: Optional[str] = Form(None),  # JSON字符串
+        input_data: Optional[str] = Form(None),
         files: List[UploadFile] = File([]),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """创建推理任务（支持文件上传）"""
-    # 处理文件上传
     file_paths = []
-    file_infos = []  # 🔥 新增：收集原文件信息供数据库记录
+    file_infos = []
     for file in files:
         if file.filename:
-            # 生成唯一文件名
             file_ext = os.path.splitext(file.filename)[-1]
             filename = f"{uuid.uuid4().hex}{file_ext}"
             file_path = os.path.join(settings.UPLOAD_DIR, "images", filename)
 
-            # 保存文件
             with open(file_path, "wb") as f:
                 f.write(await file.read())
             file_paths.append(file_path)
 
-            # 🔥 新增：将原始文件名和路径存入 file_infos，传给 service 层
             file_infos.append({
                 "file_name": file.filename,
                 "file_path": file_path
             })
 
-    # 解析输入数据（JSON字符串转字典）
     input_data_dict = {}
     if input_data:
         try:
@@ -358,7 +355,6 @@ async def create_task(
         except:
             raise HTTPException(status_code=400, detail="input_data 格式错误，需为JSON字符串")
 
-    # 创建任务
     task_in = TaskCreate(
         model_id=model_id,
         patient_name=patient_name,
@@ -370,10 +366,23 @@ async def create_task(
         task_in=task_in,
         user_id=current_user.id,
         file_paths=file_paths,
-        file_infos=file_infos  # 🔥 新增：把收集好的文件详情传给下层
+        file_infos=file_infos
     )
 
-    # 异步执行推理任务
+    model = db.query(ModelRegistry).filter(ModelRegistry.id == model_id).first()
+    model_name = model.model_name if model else "未知模型"
+    
+    ip_address = get_client_ip(request)
+    create_operation_log(
+        db=db,
+        operator_id=current_user.id,
+        operator_role=current_user.role.value,
+        operation_type=OperationType.TASK_SUBMIT,
+        operation_content=f"提交了推理任务，患者: {patient_name or '未知'}，模型: {model_name}",
+        ip_address=ip_address,
+        success=True
+    )
+
     run_inference_task.delay(task.id)
 
     return task

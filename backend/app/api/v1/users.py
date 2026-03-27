@@ -1,63 +1,208 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-# 1. 补全缺失的导入（核心修复）
 from app.core.database import get_db
-from app.core.security import create_access_token, verify_password  # 补全 verify_password
+from app.core.security import create_access_token, verify_password
 from app.core.security import get_current_user, get_current_admin_user
-from app.models.user import User, UserRole  # 补全 User 模型导入
-from app.schemas.user import UserCreate, UserUpdate, UserResponse, Token
+from app.core.config import settings
+from app.models.user import User, UserRole
+from app.models.login_log import LoginLog
+from app.models.operation_log import OperationLog, OperationType, UserRole as OpUserRole
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, Token, UserListResponse
 from app.services.user_service import user_service
 from pydantic import BaseModel
+from datetime import datetime, timedelta
+import redis
+import logging
+import os
+import uuid
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/users", tags=["用户管理"])
 
 
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = 15 * 60
+
+
+def get_redis_client():
+    redis_url = settings.REDIS_URL
+    if redis_url.startswith('redis://'):
+        redis_url = redis_url.replace('redis://', '')
+    parts = redis_url.split('/')
+    db = int(parts[1]) if len(parts) > 1 else 0
+    host_port = parts[0].split(':')
+    host = host_port[0]
+    port = int(host_port[1]) if len(host_port) > 1 else 6379
+    return redis.Redis(host=host, port=port, db=db, decode_responses=True)
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def get_login_attempts(redis_client, username: str) -> int:
+    key = f"login_attempts:{username}"
+    attempts = redis_client.get(key)
+    return int(attempts) if attempts else 0
+
+
+def increment_login_attempts(redis_client, username: str):
+    key = f"login_attempts:{username}"
+    redis_client.incr(key)
+    redis_client.expire(key, LOCKOUT_DURATION)
+
+
+def reset_login_attempts(redis_client, username: str):
+    key = f"login_attempts:{username}"
+    redis_client.delete(key)
+
+
+def is_account_locked(redis_client, username: str) -> bool:
+    attempts = get_login_attempts(redis_client, username)
+    return attempts >= MAX_LOGIN_ATTEMPTS
+
+
+def get_lockout_remaining(redis_client, username: str) -> int:
+    key = f"login_attempts:{username}"
+    ttl = redis_client.ttl(key)
+    return max(0, ttl)
+
+
+def create_login_log(db: Session, username: str, full_name: str, role: str, 
+                     ip_address: str, user_agent: str, status: str, fail_reason: str = None):
+    log = LoginLog(
+        username=username,
+        full_name=full_name,
+        role=role,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        location="",
+        status=status,
+        fail_reason=fail_reason,
+        login_time=datetime.now()
+    )
+    db.add(log)
+    db.commit()
+
+
+def create_operation_log(db: Session, operator_id: int, operator_role: str, 
+                         operation_type: OperationType, operation_content: str,
+                         ip_address: str, success: bool = True, error_msg: str = None):
+    log = OperationLog(
+        operator_id=operator_id,
+        operator_role=OpUserRole.ADMIN if operator_role == "admin" else OpUserRole.DOCTOR,
+        operation_type=operation_type,
+        operation_content=operation_content,
+        ip_address=ip_address,
+        success=success,
+        error_msg=error_msg,
+        operation_time=datetime.now()
+    )
+    db.add(log)
+    db.commit()
+
+
 @router.post("/register", response_model=UserResponse)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    """用户注册（仅管理员可用，实际可加权限校验）"""
+def register(user_in: UserCreate, db: Session = Depends(get_db), request: Request = None,
+             current_user: User = Depends(get_current_admin_user)):
+    """用户注册（仅管理员可用）"""
     user = user_service.get_user_by_username(db, username=user_in.username)
     if user:
         raise HTTPException(status_code=400, detail="用户名已存在")
-    return user_service.create_user(db, user_in=user_in)
+    
+    new_user = user_service.create_user(db, user_in=user_in)
+    
+    ip_address = get_client_ip(request) if request else "unknown"
+    create_operation_log(
+        db=db,
+        operator_id=current_user.id,
+        operator_role=current_user.role.value,
+        operation_type=OperationType.USER_CREATE,
+        operation_content=f"创建了新用户 [{user_in.username}] - {user_in.full_name}",
+        ip_address=ip_address,
+        success=True
+    )
+    
+    return new_user
 
 
-@router.post("/login", response_model=Token)  # 2. 补充响应模型，规范返回格式
+@router.post("/login", response_model=Token)
 def login(
+        request: Request,
         form_data: OAuth2PasswordRequestForm = Depends(),
         db: Session = Depends(get_db)
 ):
-    """登录接口（医生/管理员通用）"""
-    # 3. 改用 user_service 统一查询，避免直接操作数据库（保持逻辑统一）
+    ip_address = get_client_ip(request)
+    user_agent = request.headers.get("User-Agent", "unknown")
+    
+    try:
+        redis_client = get_redis_client()
+    except Exception as e:
+        logger.warning(f"Redis连接失败，跳过登录限制检查: {e}")
+        redis_client = None
+    
+    if redis_client and is_account_locked(redis_client, form_data.username):
+        remaining = get_lockout_remaining(redis_client, form_data.username)
+        minutes = remaining // 60
+        seconds = remaining % 60
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"账号已被锁定，请 {minutes}分{seconds}秒 后重试"
+        )
+    
     user = user_service.get_user_by_username(db, username=form_data.username)
 
-    # 3.1 检查用户是否存在
     if not user:
+        if redis_client:
+            increment_login_attempts(redis_client, form_data.username)
+            attempts_left = MAX_LOGIN_ATTEMPTS - get_login_attempts(redis_client, form_data.username)
+        create_login_log(db, form_data.username, "", "", ip_address, user_agent, 
+                        "fail", "用户不存在")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
+            detail=f"用户名或密码错误，剩余尝试次数: {max(0, attempts_left) if redis_client else '无限'}"
         )
 
-    # 3.2 检查账号是否启用
     if not user.is_active:
+        create_login_log(db, form_data.username, user.full_name, user.role.value, 
+                        ip_address, user_agent, "fail", "账号已被禁用")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="账号已被禁用"
         )
 
-    # 3.3 验证密码
     if not verify_password(form_data.password, user.password):
+        if redis_client:
+            increment_login_attempts(redis_client, form_data.username)
+            attempts_left = MAX_LOGIN_ATTEMPTS - get_login_attempts(redis_client, form_data.username)
+            if attempts_left <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="登录失败次数过多，账号已被锁定15分钟"
+                )
+        create_login_log(db, form_data.username, user.full_name, user.role.value, 
+                        ip_address, user_agent, "fail", "密码错误")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
+            detail=f"用户名或密码错误，剩余尝试次数: {max(0, attempts_left) if redis_client else '无限'}"
         )
 
-    # 3.4 生成JWT Token（包含用户ID和角色，便于后续权限校验）
+    if redis_client:
+        reset_login_attempts(redis_client, form_data.username)
+
+    create_login_log(db, form_data.username, user.full_name, user.role.value, 
+                    ip_address, user_agent, "success")
+
     access_token = create_access_token(
         data={"sub": str(user.id), "role": user.role.value}
     )
 
-    # 4. 按 Token 模型返回，同时兼容前端的 code/message
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -72,15 +217,42 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/", response_model=list[UserResponse])
+@router.get("/", response_model=UserListResponse)
 def get_users(
-        skip: int = 0,
-        limit: int = 100,
+        page: int = 1,
+        page_size: int = 10,
+        keyword: str = "",
+        role: str = "",
+        is_active: str = "",
+        department: str = "",
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_admin_user)  # 仅管理员可查看所有用户
+        current_user: User = Depends(get_current_admin_user)
 ):
-    """获取用户列表（仅管理员可用）"""
-    return user_service.get_users(db, skip=skip, limit=limit)
+    """获取用户列表（仅管理员可用），支持分页和搜索"""
+    query = db.query(User)
+    
+    if keyword:
+        query = query.filter(
+            (User.username.contains(keyword)) |
+            (User.full_name.contains(keyword)) |
+            (User.phone.contains(keyword)) |
+            (User.email.contains(keyword))
+        )
+    
+    if role:
+        query = query.filter(User.role == UserRole(role))
+    
+    if is_active:
+        is_active_bool = is_active.lower() == 'true'
+        query = query.filter(User.is_active == is_active_bool)
+    
+    if department:
+        query = query.filter(User.department == department)
+    
+    total = query.count()
+    items = query.order_by(User.create_time.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    return {"total": total, "items": items}
 
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -150,7 +322,92 @@ def update_user_role(
     user = user_service.get_user_by_id(db, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-    # 转换为枚举类型
     user.role = UserRole(role_in.role_id)
     db.commit()
     return {"message": "角色更新成功"}
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="只能上传图片文件")
+    
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="只支持 JPG、PNG、GIF、WEBP 格式的图片")
+    
+    file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    import uuid
+    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    
+    avatar_dir = os.path.join(settings.UPLOAD_DIR, "avatars")
+    os.makedirs(avatar_dir, exist_ok=True)
+    
+    file_path = os.path.join(avatar_dir, filename)
+    
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片大小不能超过 2MB")
+    
+    with open(file_path, "wb") as f:
+        f.write(content)
+    
+    avatar_url = f"/uploads/avatars/{filename}"
+    
+    current_user.avatar = avatar_url
+    db.commit()
+    
+    return {
+        "message": "头像上传成功",
+        "avatar_url": avatar_url
+    }
+
+
+@router.post("/{user_id}/avatar")
+async def upload_user_avatar(
+        user_id: int,
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_admin_user)
+):
+    user = user_service.get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="只能上传图片文件")
+    
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="只支持 JPG、PNG、GIF、WEBP 格式的图片")
+    
+    file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    import uuid
+    import os
+    filename = f"avatar_{user_id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    
+    avatar_dir = os.path.join(settings.UPLOAD_DIR, "avatars")
+    os.makedirs(avatar_dir, exist_ok=True)
+    
+    file_path = os.path.join(avatar_dir, filename)
+    
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="图片大小不能超过 2MB")
+    
+    with open(file_path, "wb") as f:
+        f.write(content)
+    
+    avatar_url = f"/uploads/avatars/{filename}"
+    
+    user.avatar = avatar_url
+    db.commit()
+    
+    return {
+        "message": "头像上传成功",
+        "avatar_url": avatar_url
+    }

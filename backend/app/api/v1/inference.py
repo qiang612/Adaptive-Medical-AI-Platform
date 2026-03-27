@@ -1,5 +1,5 @@
 # backend/app/api/v1/inference.py
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, Request
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 from datetime import datetime
@@ -13,9 +13,36 @@ from app.services.inference_service import inference_service, run_inference_task
 from app.services.task_service import task_service
 from app.models.model_registry import ModelRegistry
 from app.models.inference_task import InferenceTask, TaskStatus
+from app.models.operation_log import OperationLog, OperationType, UserRole as OpUserRole
 from app.schemas.task import TaskCreate
 
 router = APIRouter(prefix="/inference", tags=["推理核心"])
+
+
+def get_client_ip(request: Request) -> str:
+    """获取客户端真实IP"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_operation_log(db: Session, operator_id: int, operator_role: str, 
+                         operation_type: OperationType, operation_content: str,
+                         ip_address: str, success: bool = True, error_msg: str = None):
+    """创建操作日志"""
+    log = OperationLog(
+        operator_id=operator_id,
+        operator_role=OpUserRole.ADMIN if operator_role == "admin" else OpUserRole.DOCTOR,
+        operation_type=operation_type,
+        operation_content=operation_content,
+        ip_address=ip_address,
+        success=success,
+        error_msg=error_msg,
+        operation_time=datetime.now()
+    )
+    db.add(log)
+    db.commit()
 
 
 @router.get("/status/{task_id}")
@@ -24,7 +51,8 @@ def get_task_status(task_id: str, db: Session = Depends(get_db), current_user=De
 
 
 @router.post("/batch")
-def batch_inference(req: dict = Body(...), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def batch_inference(req: dict = Body(...), db: Session = Depends(get_db), 
+                    request: Request = None, current_user=Depends(get_current_user)):
     """
     批量多模型对比推理接口
     为每个选中的模型创建独立的Celery异步任务，支持前端轮询状态
@@ -39,6 +67,9 @@ def batch_inference(req: dict = Body(...), db: Session = Depends(get_db), curren
 
     batch_id = str(uuid.uuid4())[:8]
     created_tasks = []
+    
+    ip_address = get_client_ip(request) if request else "unknown"
+    model_names = []
 
     for m_id in model_ids:
         model = db.query(ModelRegistry).filter(ModelRegistry.id == m_id).first()
@@ -47,6 +78,8 @@ def batch_inference(req: dict = Body(...), db: Session = Depends(get_db), curren
 
         if not model.is_active:
             continue
+        
+        model_names.append(model.model_name)
 
         task_id_str = str(uuid.uuid4())
         
@@ -88,6 +121,18 @@ def batch_inference(req: dict = Body(...), db: Session = Depends(get_db), curren
             "model_name": model.model_name,
             "status": "pending"
         })
+
+    if created_tasks:
+        patient_name = patient_info.get("name", "未知患者")
+        create_operation_log(
+            db=db,
+            operator_id=current_user.id,
+            operator_role=current_user.role.value,
+            operation_type=OperationType.TASK_SUBMIT,
+            operation_content=f"提交了批量推理任务，患者: {patient_name}，模型: {', '.join(model_names)}",
+            ip_address=ip_address,
+            success=True
+        )
 
     return {
         "code": 200,

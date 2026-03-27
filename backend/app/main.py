@@ -1,9 +1,19 @@
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
+import logging
+
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.websocket import ws_manager
+from app.core.middleware import RequestLoggingMiddleware, SlowRequestMiddleware
+from app.core.exceptions import (
+    AppException, app_exception_handler, validation_exception_handler,
+    sqlalchemy_exception_handler, generic_exception_handler
+)
 from app.models import Base
 from fastapi.staticfiles import StaticFiles
 import os
@@ -11,6 +21,11 @@ import asyncio
 import json
 import threading
 import redis
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 Base.metadata.create_all(bind=engine, checkfirst=True)
 
@@ -20,7 +35,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+app.add_middleware(SlowRequestMiddleware, threshold=3.0)
+app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +45,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
+
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 app.include_router(api_router)
 

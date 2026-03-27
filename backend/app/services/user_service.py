@@ -21,7 +21,10 @@ class UserService:
             email=user_in.email,
             phone=user_in.phone,
             role=user_in.role,
-            department=user_in.department
+            department=user_in.department,
+            title=user_in.title,
+            remark=user_in.remark,
+            is_active=user_in.is_active if user_in.is_active is not None else True
         )
         db.add(db_user)
         db.commit()

@@ -1,13 +1,41 @@
 # backend/app/api/v1/models.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
+from datetime import datetime
 from app.core.database import get_db
 from app.core.security import get_current_user, get_current_admin_user
 from app.schemas.model import ModelCreate, ModelUpdate, ModelResponse
 from app.services.model_service import model_service
+from app.models.operation_log import OperationLog, OperationType, UserRole as OpUserRole
 
 router = APIRouter(prefix="/models", tags=["模型管理"])
+
+
+def get_client_ip(request: Request) -> str:
+    """获取客户端真实IP"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_operation_log(db: Session, operator_id: int, operator_role: str, 
+                         operation_type: OperationType, operation_content: str,
+                         ip_address: str, success: bool = True, error_msg: str = None):
+    """创建操作日志"""
+    log = OperationLog(
+        operator_id=operator_id,
+        operator_role=OpUserRole.ADMIN if operator_role == "admin" else OpUserRole.DOCTOR,
+        operation_type=operation_type,
+        operation_content=operation_content,
+        ip_address=ip_address,
+        success=success,
+        error_msg=error_msg,
+        operation_time=datetime.now()
+    )
+    db.add(log)
+    db.commit()
 
 
 @router.get("/")
@@ -53,6 +81,7 @@ def toggle_model_status(
         model_id: int,
         status_data: Dict[str, Any],
         db: Session = Depends(get_db),
+        request: Request = None,
         current_user=Depends(get_current_admin_user)
 ):
     """切换模型启用/禁用状态"""
@@ -61,8 +90,22 @@ def toggle_model_status(
         raise HTTPException(status_code=404, detail="模型不存在")
 
     is_active = status_data.get("is_active", True)
+    old_status = model.is_active
     model.is_active = is_active
     db.commit()
+    
+    ip_address = get_client_ip(request) if request else "unknown"
+    action = "启用" if is_active else "禁用"
+    create_operation_log(
+        db=db,
+        operator_id=current_user.id,
+        operator_role=current_user.role.value,
+        operation_type=OperationType.MODEL_DISABLE if not is_active else OperationType.MODEL_UPDATE,
+        operation_content=f"{action}了模型 [{model.model_name}]",
+        ip_address=ip_address,
+        success=True
+    )
+    
     return {"message": "状态更新成功", "is_active": is_active}
 
 
@@ -130,13 +173,28 @@ def get_model(
 def create_model(
         model_in: ModelCreate,
         db: Session = Depends(get_db),
+        request: Request = None,
         current_user=Depends(get_current_admin_user)
 ):
     """创建新模型（仅管理员）"""
     model = model_service.get_model_by_code(db, model_code=model_in.model_code)
     if model:
         raise HTTPException(status_code=400, detail="模型编码已存在")
-    return model_service.create_model(db, model_in=model_in)
+    
+    new_model = model_service.create_model(db, model_in=model_in)
+    
+    ip_address = get_client_ip(request) if request else "unknown"
+    create_operation_log(
+        db=db,
+        operator_id=current_user.id,
+        operator_role=current_user.role.value,
+        operation_type=OperationType.MODEL_REGISTER,
+        operation_content=f"注册了新模型 [{model_in.model_name}] v{model_in.model_version}",
+        ip_address=ip_address,
+        success=True
+    )
+    
+    return new_model
 
 
 @router.put("/{model_id}", response_model=ModelResponse)
@@ -144,13 +202,28 @@ def update_model(
         model_id: int,
         model_in: ModelUpdate,
         db: Session = Depends(get_db),
+        request: Request = None,
         current_user=Depends(get_current_admin_user)
 ):
     """更新模型（仅管理员）"""
     model = model_service.get_model_by_id(db, model_id=model_id)
     if not model:
         raise HTTPException(status_code=404, detail="模型不存在")
-    return model_service.update_model(db, db_model=model, model_in=model_in)
+    
+    updated_model = model_service.update_model(db, db_model=model, model_in=model_in)
+    
+    ip_address = get_client_ip(request) if request else "unknown"
+    create_operation_log(
+        db=db,
+        operator_id=current_user.id,
+        operator_role=current_user.role.value,
+        operation_type=OperationType.MODEL_UPDATE,
+        operation_content=f"更新了模型 [{model.model_name}]",
+        ip_address=ip_address,
+        success=True
+    )
+    
+    return updated_model
 
 
 @router.delete("/{model_id}")

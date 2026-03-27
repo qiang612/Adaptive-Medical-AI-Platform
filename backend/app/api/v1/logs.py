@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import List
 import io
 import csv
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
+from app.core.security import get_current_admin_user
 from app.models.operation_log import OperationLog, OperationType
 from app.models.inference_task import InferenceTask, TaskStatus
 from app.models.login_log import LoginLog
@@ -14,10 +18,12 @@ from app.models.user import User
 router = APIRouter(tags=["Logs"])
 
 
-# ================= 辅助函数：安全处理时间与截断 ISO 尾缀 =================
+class BatchDeleteRequest(BaseModel):
+    ids: List[int]
+
+
 def apply_time_filter(query, model_column, start_time: str, end_time: str):
     if start_time and len(start_time) >= 10:
-        # 只取前10位 YYYY-MM-DD，防丢弃前端传来的 T16:00:00.000Z 等时区后缀
         st_date = start_time[:10]
         query = query.filter(model_column >= f"{st_date} 00:00:00")
     if end_time and len(end_time) >= 10:
@@ -231,3 +237,182 @@ def export_logs(
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={log_type}_logs.csv"
     return response
+
+
+@router.delete("/operation/batch")
+def delete_operation_logs(
+        req: BatchDeleteRequest,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    deleted = db.query(OperationLog).filter(OperationLog.id.in_(req.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"成功删除 {deleted} 条操作日志"}
+
+
+@router.delete("/operation/{log_id}")
+def delete_single_operation_log(
+        log_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    log = db.query(OperationLog).filter(OperationLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="日志不存在")
+    db.delete(log)
+    db.commit()
+    return {"message": "删除成功"}
+
+
+@router.delete("/login/batch")
+def delete_login_logs(
+        req: BatchDeleteRequest,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    deleted = db.query(LoginLog).filter(LoginLog.id.in_(req.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"成功删除 {deleted} 条登录日志"}
+
+
+@router.delete("/login/{log_id}")
+def delete_single_login_log(
+        log_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    log = db.query(LoginLog).filter(LoginLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="日志不存在")
+    db.delete(log)
+    db.commit()
+    return {"message": "删除成功"}
+
+
+@router.get("/stats/overview")
+def get_log_stats_overview(
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    today = datetime.now().date()
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    
+    today_start = datetime.combine(today, datetime.min.time())
+    week_start = datetime.combine(week_ago, datetime.min.time())
+    month_start = datetime.combine(month_ago, datetime.min.time())
+    
+    login_today = db.query(LoginLog).filter(LoginLog.login_time >= today_start).count()
+    login_week = db.query(LoginLog).filter(LoginLog.login_time >= week_start).count()
+    login_month = db.query(LoginLog).filter(LoginLog.login_time >= month_start).count()
+    
+    operation_today = db.query(OperationLog).filter(OperationLog.operation_time >= today_start).count()
+    operation_week = db.query(OperationLog).filter(OperationLog.operation_time >= week_start).count()
+    operation_month = db.query(OperationLog).filter(OperationLog.operation_time >= month_start).count()
+    
+    inference_today = db.query(InferenceTask).filter(InferenceTask.created_at >= today_start).count()
+    inference_week = db.query(InferenceTask).filter(InferenceTask.created_at >= week_start).count()
+    inference_month = db.query(InferenceTask).filter(InferenceTask.created_at >= month_start).count()
+    
+    return {
+        "login": {
+            "today": login_today,
+            "week": login_week,
+            "month": login_month
+        },
+        "operation": {
+            "today": operation_today,
+            "week": operation_week,
+            "month": operation_month
+        },
+        "inference": {
+            "today": inference_today,
+            "week": inference_week,
+            "month": inference_month
+        }
+    }
+
+
+@router.get("/stats/login-trend")
+def get_login_trend(
+        days: int = 7,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    result = []
+    for i in range(days - 1, -1, -1):
+        date = datetime.now().date() - timedelta(days=i)
+        day_start = datetime.combine(date, datetime.min.time())
+        day_end = datetime.combine(date, datetime.max.time())
+        
+        success_count = db.query(LoginLog).filter(
+            LoginLog.login_time >= day_start,
+            LoginLog.login_time <= day_end,
+            LoginLog.status == "success"
+        ).count()
+        
+        fail_count = db.query(LoginLog).filter(
+            LoginLog.login_time >= day_start,
+            LoginLog.login_time <= day_end,
+            LoginLog.status == "fail"
+        ).count()
+        
+        result.append({
+            "date": date.strftime("%Y-%m-%d"),
+            "success": success_count,
+            "fail": fail_count
+        })
+    
+    return result
+
+
+@router.get("/stats/operation-distribution")
+def get_operation_distribution(
+        days: int = 7,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    date_start = datetime.now().date() - timedelta(days=days)
+    datetime_start = datetime.combine(date_start, datetime.min.time())
+    
+    distribution = db.query(
+        OperationLog.operation_type,
+        func.count(OperationLog.id)
+    ).filter(
+        OperationLog.operation_time >= datetime_start
+    ).group_by(OperationLog.operation_type).all()
+    
+    result = []
+    for op_type, count in distribution:
+        result.append({
+            "type": op_type.value if hasattr(op_type, 'value') else op_type,
+            "count": count
+        })
+    
+    return result
+
+
+@router.get("/stats/inference-status")
+def get_inference_status_stats(
+        days: int = 7,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_admin_user)
+):
+    date_start = datetime.now().date() - timedelta(days=days)
+    datetime_start = datetime.combine(date_start, datetime.min.time())
+    
+    status_stats = db.query(
+        InferenceTask.status,
+        func.count(InferenceTask.id)
+    ).filter(
+        InferenceTask.created_at >= datetime_start
+    ).group_by(InferenceTask.status).all()
+    
+    result = []
+    for status, count in status_stats:
+        result.append({
+            "status": status.value if hasattr(status, 'value') else status,
+            "count": count
+        })
+    
+    return result

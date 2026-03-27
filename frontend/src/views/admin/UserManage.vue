@@ -52,13 +52,12 @@
         <el-select v-model="searchForm.role" placeholder="全部" clearable style="width: 160px" @change="loadUserList">
           <el-option label="管理员" value="admin" />
           <el-option label="医生" value="doctor" />
-          <el-option label="实习生" value="intern" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.isActive" placeholder="全部" clearable style="width: 160px" @change="loadUserList">
-          <el-option label="启用" :label="true" />
-          <el-option label="禁用" :label="false" />
+          <el-option label="启用" value="true" />
+          <el-option label="禁用" value="false" />
         </el-select>
       </el-form-item>
       <el-form-item label="部门">
@@ -92,8 +91,8 @@
         </el-table-column>
         <el-table-column prop="role" label="角色" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'admin' ? 'danger' : row.role === 'doctor' ? 'primary' : 'info'" size="small">
-              {{ row.role === 'admin' ? '管理员' : row.role === 'doctor' ? '医生' : '实习生' }}
+            <el-tag :type="row.role === 'admin' ? 'danger' : 'primary'" size="small">
+              {{ row.role === 'admin' ? '管理员' : '医生' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -119,7 +118,11 @@
             {{ row.last_login_at || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="create_time" label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ row.create_time || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="viewUserDetail(row)">
@@ -152,6 +155,28 @@
 
     <el-dialog v-model="userDialogVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="700px" :close-on-click-modal="false">
       <el-form :model="userForm" :rules="userRules" ref="userFormRef" label-width="120px" class="common-form">
+        <el-form-item label="头像">
+          <div class="avatar-upload-wrapper">
+            <el-upload
+              class="avatar-uploader"
+              action="#"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleAvatarChange"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+            >
+              <el-avatar v-if="userForm.avatar" :size="80" :src="userForm.avatar" />
+              <el-avatar v-else :size="80" class="avatar-placeholder">
+                {{ userForm.full_name?.charAt(0) || userForm.username?.charAt(0) || '?' }}
+              </el-avatar>
+              <div class="avatar-upload-tip">点击上传头像</div>
+            </el-upload>
+            <div class="avatar-upload-info">
+              <p>支持 JPG、PNG、GIF、WEBP 格式</p>
+              <p>文件大小不超过 2MB</p>
+            </div>
+          </div>
+        </el-form-item>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="用户名" prop="username">
@@ -159,7 +184,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="姓名" prop="fullName">
+            <el-form-item label="姓名" prop="full_name">
               <el-input v-model="userForm.full_name" placeholder="请输入真实姓名" />
             </el-form-item>
           </el-col>
@@ -171,7 +196,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="确认密码" prop="confirmPassword">
+            <el-form-item label="确认密码" prop="confirm_password">
               <el-input v-model="userForm.confirm_password" type="password" placeholder="请再次输入密码" show-password />
             </el-form-item>
           </el-col>
@@ -182,7 +207,6 @@
               <el-select v-model="userForm.role" placeholder="请选择角色" style="width: 100%">
                 <el-option label="管理员" value="admin" />
                 <el-option label="医生" value="doctor" />
-                <el-option label="实习生" value="intern" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -236,10 +260,10 @@
         <el-form-item label="用户名">
           <el-input v-model="passwordForm.username" disabled />
         </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
+        <el-form-item label="新密码" prop="new_password">
           <el-input v-model="passwordForm.new_password" type="password" placeholder="请输入新密码" show-password />
         </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword">
+        <el-form-item label="确认密码" prop="confirm_password">
           <el-input v-model="passwordForm.confirm_password" type="password" placeholder="请再次输入新密码" show-password />
         </el-form-item>
       </el-form>
@@ -263,8 +287,8 @@
         <div class="profile-info-center">
           <h3>{{ currentUser.full_name || currentUser.username }}</h3>
           <div class="profile-meta">@{{ currentUser.username }}</div>
-          <el-tag :type="currentUser.role === 'admin' ? 'danger' : currentUser.role === 'doctor' ? 'primary' : 'info'" size="small" effect="light" class="role-tag">
-            {{ currentUser.role === 'admin' ? '管理员' : currentUser.role === 'doctor' ? '医生' : '实习生' }}
+          <el-tag :type="currentUser.role === 'admin' ? 'danger' : 'primary'" size="small" effect="light" class="role-tag">
+            {{ currentUser.role === 'admin' ? '管理员' : '医生' }}
           </el-tag>
           <el-tag v-if="!currentUser.is_active" type="info" size="small" effect="dark" style="margin-left: 8px;">已禁用</el-tag>
         </div>
@@ -275,7 +299,7 @@
             <el-descriptions-item label="职称">{{ currentUser.title || '-' }}</el-descriptions-item>
             <el-descriptions-item label="手机号">{{ currentUser.phone || '-' }}</el-descriptions-item>
             <el-descriptions-item label="邮箱">{{ currentUser.email || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ currentUser.created_at }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ currentUser.create_time || '-' }}</el-descriptions-item>
             <el-descriptions-item label="最后登录">{{ currentUser.last_login_at || '-' }}</el-descriptions-item>
             <el-descriptions-item label="累计诊断次数">
               <span class="highlight-data">{{ currentUser.diagnosis_count || 0 }} 次</span>
@@ -295,7 +319,7 @@ import { Plus, User, Monitor, DataLine } from '@element-plus/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import Pagination from '@/components/Pagination.vue'
-import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, toggleUserStatus } from '@/api/user'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, toggleUserStatus, uploadUserAvatar } from '@/api/user'
 
 const loading = ref(false)
 const userList = ref([])
@@ -342,9 +366,37 @@ const userForm = reactive({
   phone: '',
   email: '',
   title: '',
+  avatar: '',
   remark: '',
   is_active: true
 })
+
+const avatarFile = ref(null)
+
+const handleAvatarChange = (uploadFile) => {
+  const file = uploadFile.raw
+  if (!file) return
+  
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
+  
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
+    return
+  }
+  
+  avatarFile.value = file
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    userForm.avatar = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
 
 // 密码重置表单
 const passwordForm = reactive({
@@ -376,14 +428,14 @@ const userRules = {
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_]{4,20}$/, message: '用户名只能包含字母、数字、下划线，长度4-20位', trigger: 'blur' }
   ],
-  fullName: [
+  full_name: [
     { required: true, message: '请输入姓名', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
-  confirmPassword: [
+  confirm_password: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ],
@@ -393,11 +445,11 @@ const userRules = {
 }
 
 const passwordRules = {
-  newPassword: [
+  new_password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
-  confirmPassword: [
+  confirm_password: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
     { validator: validateResetConfirmPassword, trigger: 'blur' }
   ]
@@ -445,6 +497,7 @@ const handleReset = () => {
 // 打开用户对话框
 const openUserDialog = (row = null) => {
   isEdit.value = !!row
+  avatarFile.value = null
   if (row) {
     Object.assign(userForm, {
       id: row.id,
@@ -457,6 +510,7 @@ const openUserDialog = (row = null) => {
       phone: row.phone,
       email: row.email,
       title: row.title,
+      avatar: row.avatar || '',
       remark: row.remark,
       is_active: row.is_active
     })
@@ -472,6 +526,7 @@ const openUserDialog = (row = null) => {
       phone: '',
       email: '',
       title: '',
+      avatar: '',
       remark: '',
       is_active: true
     })
@@ -485,10 +540,31 @@ const saveUser = async () => {
   userSaving.value = true
   try {
     if (isEdit.value) {
-      await updateUser(userForm.id, userForm)
+      const updateData = { ...userForm }
+      delete updateData.password
+      delete updateData.confirm_password
+      await updateUser(userForm.id, updateData)
+      
+      if (avatarFile.value) {
+        try {
+          await uploadUserAvatar(userForm.id, avatarFile.value)
+        } catch (avatarError) {
+          console.error('上传头像失败', avatarError)
+        }
+      }
+      
       ElMessage.success('更新成功')
     } else {
-      await createUser(userForm)
+      const newUser = await createUser(userForm)
+      
+      if (avatarFile.value && newUser.id) {
+        try {
+          await uploadUserAvatar(newUser.id, avatarFile.value)
+        } catch (avatarError) {
+          console.error('上传头像失败', avatarError)
+        }
+      }
+      
       ElMessage.success('创建成功')
     }
     userDialogVisible.value = false
@@ -723,5 +799,52 @@ onMounted(() => {
   color: var(--primary-color);
   font-weight: bold;
   font-size: 15px;
+}
+
+.avatar-upload-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.avatar-uploader {
+  position: relative;
+  cursor: pointer;
+}
+
+.avatar-uploader:hover .avatar-upload-tip {
+  opacity: 1;
+}
+
+.avatar-placeholder {
+  background: linear-gradient(135deg, #165DFF 0%, #4080ff 100%);
+  color: #fff;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.avatar-upload-tip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 0 0 40px 40px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.avatar-upload-info {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.avatar-upload-info p {
+  margin: 0;
 }
 </style>

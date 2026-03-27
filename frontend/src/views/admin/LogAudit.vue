@@ -37,7 +37,8 @@
             <v-chart :option="operationTrendOption" style="height: 100px" autoresize />
           </div>
 
-          <el-table :data="operationLogList" border class="common-table" v-loading="loading">
+          <el-table :data="operationLogList" border class="common-table" v-loading="loading" @selection-change="handleOperationSelectionChange">
+            <el-table-column type="selection" width="55" />
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="operator_name" label="操作人" width="120" />
             <el-table-column prop="operation_type" label="操作类型" width="100">
@@ -60,9 +61,10 @@
               </template>
             </el-table-column>
             <el-table-column prop="created_at" label="操作时间" width="180" />
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link size="small" @click="viewOperationDetail(row)">详情</el-button>
+                <el-button type="danger" link size="small" @click="handleDeleteSingleOperationLog(row.id)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -75,6 +77,10 @@
           />
 
           <div class="export-section">
+            <el-button type="danger" :disabled="selectedOperationLogs.length === 0" @click="handleBatchDeleteOperationLogs">
+              <el-icon><Delete /></el-icon>
+              批量删除 ({{ selectedOperationLogs.length }})
+            </el-button>
             <el-button type="primary" @click="exportLog('operation')">
               <el-icon><Download /></el-icon>
               导出当前筛选结果
@@ -103,7 +109,8 @@
             <v-chart :option="loginTrendOption" style="height: 100px" autoresize />
           </div>
 
-          <el-table :data="loginLogList" border class="common-table" v-loading="loading">
+          <el-table :data="loginLogList" border class="common-table" v-loading="loading" @selection-change="handleLoginSelectionChange">
+            <el-table-column type="selection" width="55" />
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="username" label="用户名" width="120" />
             <el-table-column prop="full_name" label="姓名" width="120" />
@@ -126,6 +133,12 @@
             </el-table-column>
             <el-table-column prop="fail_reason" label="失败原因" min-width="150" show-overflow-tooltip />
             <el-table-column prop="login_time" label="登录时间" width="180" />
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="viewOperationDetail(row)">详情</el-button>
+                <el-button type="danger" link size="small" @click="handleDeleteSingleLoginLog(row.id)">删除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <Pagination
@@ -136,6 +149,10 @@
           />
 
           <div class="export-section">
+            <el-button type="danger" :disabled="selectedLoginLogs.length === 0" @click="handleBatchDeleteLoginLogs">
+              <el-icon><Delete /></el-icon>
+              批量删除 ({{ selectedLoginLogs.length }})
+            </el-button>
             <el-button type="primary" @click="exportLog('login')">
               <el-icon><Download /></el-icon>
               导出当前筛选结果
@@ -238,13 +255,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Download } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Download, Delete } from '@element-plus/icons-vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import Pagination from '@/components/Pagination.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import { getOperationLogs, getLoginLogs, getInferenceLogs, exportLogs } from '@/api/log'
+import { getOperationLogs, getLoginLogs, getInferenceLogs, exportLogs,
+         deleteOperationLogs, deleteSingleOperationLog, deleteLoginLogs, deleteSingleLoginLog,
+         getLogStatsOverview, getLoginTrend, getOperationDistribution, getInferenceStatusStats } from '@/api/log'
 
 // ECharts 引入
 import VChart from 'vue-echarts'
@@ -341,32 +360,32 @@ const baseTrendOption = {
   }
 }
 
-// 1. 操作日志趋势图（Mock 数据，可替换为 API 数据）
 const operationTrendOption = ref({
   ...baseTrendOption,
   series: [
-    { name: '成功操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#165DFF', borderRadius: [0, 0, 2, 2] }, data: [120, 132, 101, 134, 90, 230, 210] },
-    { name: '异常操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [5, 2, 1, 4, 2, 8, 3] }
+    { name: '成功操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#165DFF', borderRadius: [0, 0, 2, 2] }, data: [] },
+    { name: '异常操作', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [] }
   ]
 })
 
-// 2. 登录日志趋势图
 const loginTrendOption = ref({
   ...baseTrendOption,
   series: [
-    { name: '成功登录', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#00B42A', borderRadius: [0, 0, 2, 2] }, data: [45, 52, 48, 60, 55, 78, 82] },
-    { name: '登录失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#FF7D00', borderRadius: [2, 2, 0, 0] }, data: [2, 4, 1, 3, 5, 2, 1] }
+    { name: '成功登录', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#00B42A', borderRadius: [0, 0, 2, 2] }, data: [] },
+    { name: '登录失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#FF7D00', borderRadius: [2, 2, 0, 0] }, data: [] }
   ]
 })
 
-// 3. 推理日志趋势图
 const inferenceTrendOption = ref({
   ...baseTrendOption,
   series: [
-    { name: '推理完成', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#722ED1', borderRadius: [0, 0, 2, 2] }, data: [320, 280, 410, 390, 450, 520, 600] },
-    { name: '推理失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [12, 8, 15, 5, 10, 14, 6] }
+    { name: '推理完成', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#722ED1', borderRadius: [0, 0, 2, 2] }, data: [] },
+    { name: '推理失败', type: 'bar', stack: 'total', barWidth: '16px', itemStyle: { color: '#F53F3F', borderRadius: [2, 2, 0, 0] }, data: [] }
   ]
 })
+
+const selectedOperationLogs = ref([])
+const selectedLoginLogs = ref([])
 // ====================================================
 
 // ✅ 新增：监听下拉框改变，自动触发查询
@@ -539,14 +558,150 @@ const exportLog = async (type) => {
 }
 
 onMounted(() => {
-  // 如果是医生角色，可以默认打开"推理日志"面板
   const userRole = localStorage.getItem('role') || ''
   if (userRole === 'doctor') {
     activeTab.value = 'inference'
   }
   
   loadLogList()
+  loadTrendData()
 })
+
+const loadTrendData = async () => {
+  try {
+    const loginTrend = await getLoginTrend(7)
+    if (loginTrend && loginTrend.length > 0) {
+      const dates = loginTrend.map(item => item.date.substring(5))
+      const successData = loginTrend.map(item => item.success)
+      const failData = loginTrend.map(item => item.fail)
+      
+      loginTrendOption.value.xAxis.data = dates
+      loginTrendOption.value.series[0].data = successData
+      loginTrendOption.value.series[1].data = failData
+    }
+  } catch (error) {
+    console.error('加载趋势数据失败', error)
+  }
+  
+  try {
+    const opDistribution = await getOperationDistribution(7)
+    if (opDistribution && opDistribution.length > 0) {
+      const successTotal = opDistribution.reduce((sum, item) => sum + item.count, 0)
+      operationTrendOption.value.series[0].data = [successTotal]
+      operationTrendOption.value.series[1].data = [0]
+    }
+  } catch (error) {
+    console.error('加载操作分布数据失败', error)
+  }
+  
+  try {
+    const inferenceStats = await getInferenceStatusStats(7)
+    if (inferenceStats && inferenceStats.length > 0) {
+      const completed = inferenceStats.find(s => s.status === 'completed')?.count || 0
+      const failed = inferenceStats.find(s => s.status === 'failed')?.count || 0
+      inferenceTrendOption.value.series[0].data = [completed]
+      inferenceTrendOption.value.series[1].data = [failed]
+    }
+  } catch (error) {
+    console.error('加载推理状态数据失败', error)
+  }
+}
+
+const handleOperationSelectionChange = (selection) => {
+  selectedOperationLogs.value = selection.map(item => item.id)
+}
+
+const handleLoginSelectionChange = (selection) => {
+  selectedLoginLogs.value = selection.map(item => item.id)
+}
+
+const handleBatchDeleteOperationLogs = async () => {
+  if (selectedOperationLogs.value.length === 0) {
+    ElMessage.warning('请先选择要删除的日志')
+    return
+  }
+  
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedOperationLogs.value.length} 条操作日志吗？`, '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await deleteOperationLogs(selectedOperationLogs.value)
+    ElMessage.success('删除成功')
+    selectedOperationLogs.value = []
+    loadOperationLogList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除操作日志失败', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const handleBatchDeleteLoginLogs = async () => {
+  if (selectedLoginLogs.value.length === 0) {
+    ElMessage.warning('请先选择要删除的日志')
+    return
+  }
+  
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedLoginLogs.value.length} 条登录日志吗？`, '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await deleteLoginLogs(selectedLoginLogs.value)
+    ElMessage.success('删除成功')
+    selectedLoginLogs.value = []
+    loadLoginLogList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除登录日志失败', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const handleDeleteSingleOperationLog = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该条操作日志吗？', '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await deleteSingleOperationLog(id)
+    ElMessage.success('删除成功')
+    loadOperationLogList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除操作日志失败', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const handleDeleteSingleLoginLog = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该条登录日志吗？', '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await deleteSingleLoginLog(id)
+    ElMessage.success('删除成功')
+    loadLoginLogList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除登录日志失败', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
 </script>
 
 <style scoped>

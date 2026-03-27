@@ -1,24 +1,52 @@
 import request from './index'
 
-// 获取操作日志列表
 export function getOperationLogs(params) {
   return request.get('/logs/operation', { params })
 }
 
-// 获取登录日志列表
 export function getLoginLogs(params) {
   return request.get('/logs/login', { params })
 }
 
-// 获取推理日志列表
 export function getInferenceLogs(params) {
   return request.get('/logs/inference', { params })
 }
 
-// 导出日志
 export function exportLogs(type, params) {
   return request.get(`/logs/${type}/export`, {
     params,
     responseType: 'blob'
   })
+}
+
+export function deleteOperationLogs(ids) {
+  return request.delete('/logs/operation/batch', { data: { ids } })
+}
+
+export function deleteSingleOperationLog(id) {
+  return request.delete(`/logs/operation/${id}`)
+}
+
+export function deleteLoginLogs(ids) {
+  return request.delete('/logs/login/batch', { data: { ids } })
+}
+
+export function deleteSingleLoginLog(id) {
+  return request.delete(`/logs/login/${id}`)
+}
+
+export function getLogStatsOverview() {
+  return request.get('/logs/stats/overview')
+}
+
+export function getLoginTrend(days = 7) {
+  return request.get('/logs/stats/login-trend', { params: { days } })
+}
+
+export function getOperationDistribution(days = 7) {
+  return request.get('/logs/stats/operation-distribution', { params: { days } })
+}
+
+export function getInferenceStatusStats(days = 7) {
+  return request.get('/logs/stats/inference-status', { params: { days } })
 }

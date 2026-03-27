@@ -54,8 +54,8 @@ export function getCurrentUser() {
   return request.get('/users/me')
     .catch(error => {
       console.error('获取用户信息失败:', error)
-      const errMsg = error.response?.status === 401 
-        ? '登录状态失效，请重新登录' 
+      const errMsg = error.response?.status === 401
+        ? '登录状态失效，请重新登录'
         : '获取用户信息失败'
       throw new Error(errMsg)
     })
@@ -63,12 +63,11 @@ export function getCurrentUser() {
 
 /**
  * 获取用户列表
- * @param {Object} params 查询参数（如 page、limit、keyword）
+ * @param {Object} params 查询参数（如 page、page_size、keyword）
  * @returns {Promise} 用户列表
  */
 export function getUsers(params = {}) {
-  // 默认参数兼容：避免后端 limit 不传导致的 422 错误
-  const queryParams = { limit: 100, page: 1, ...params }
+  const queryParams = { page: 1, page_size: 10, ...params }
   return request.get('/users/', { params: queryParams })
     .catch(error => {
       console.error('获取用户列表失败:', error)
@@ -78,18 +77,28 @@ export function getUsers(params = {}) {
 
 /**
  * 创建用户
- * @param {Object} data 用户信息（username/password/role_id 等）
+ * @param {Object} data 用户信息（username/password/role/full_name 等）
  * @returns {Promise} 创建结果
  */
 export function createUser(data) {
-  // 前置校验：必填项检查
-  const requiredFields = ['username', 'password', 'role_id']
+  const requiredFields = ['username', 'password', 'role', 'full_name']
   const missingFields = requiredFields.filter(field => !data[field])
   if (missingFields.length > 0) {
     return Promise.reject(new Error(`创建用户失败：缺少必填字段 ${missingFields.join(', ')}`))
   }
-  
-  return request.post('/users/', data)
+
+  const submitData = {
+    username: data.username,
+    password: data.password,
+    full_name: data.full_name,
+    role: data.role,
+    email: data.email || null,
+    phone: data.phone || null,
+    department: data.department || null,
+    is_active: data.is_active !== undefined ? data.is_active : true
+  }
+
+  return request.post('/users/register', submitData)
     .catch(error => {
       console.error('创建用户失败:', error)
       throw new Error(error.response?.data?.detail || '创建用户失败')
@@ -107,7 +116,7 @@ export function updateUser(id, data) {
   if (!id) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
-  
+
   return request.put(`/users/${id}`, data)
     .catch(error => {
       console.error('更新用户失败:', error)
@@ -124,7 +133,7 @@ export function deleteUser(id) {
   if (!id) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
-  
+
   return request.delete(`/users/${id}`)
     .catch(error => {
       console.error('删除用户失败:', error)
@@ -142,12 +151,12 @@ export function resetUserPassword(id, data) {
   if (!id) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
-  
+
   // 校验新密码
   if (!data?.new_password) {
     return Promise.reject(new Error('新密码不能为空'))
   }
-  
+
   return request.post(`/users/${id}/reset-password`, data)
     .catch(error => {
       console.error('重置密码失败:', error)
@@ -165,10 +174,10 @@ export function toggleUserStatus(id, is_active) {
   if (!id) {
     return Promise.reject(new Error('用户ID不能为空'))
   }
-  
+
   // 确保 is_active 是布尔值
   const status = typeof is_active === 'boolean' ? is_active : Boolean(is_active)
-  
+
   return request.patch(`/users/${id}/status`, { is_active: status })
     .catch(error => {
       console.error('切换用户状态失败:', error)
@@ -198,7 +207,7 @@ export function updateUserRole(id, roleId) {
   if (!id || !roleId) {
     return Promise.reject(new Error('用户ID和角色ID不能为空'))
   }
-  
+
   return request.put(`/users/${id}/role`, { role_id: roleId })
     .catch(error => {
       console.error('更新用户角色失败:', error)
@@ -213,10 +222,10 @@ export function updateUserRole(id, roleId) {
  */
 export function getModels(params = {}) {
   // 增强默认参数：补充 page 参数，避免后端校验失败
-  const queryParams = { 
-    limit: 100, 
-    page: 1, 
-    ...params 
+  const queryParams = {
+    limit: 100,
+    page: 1,
+    ...params
   }
   return request.get('/models/', { params: queryParams })
     .catch(error => {
@@ -235,7 +244,7 @@ export function getActiveModel(modelId) {
   if (!modelId) {
     return Promise.reject(new Error('模型ID不能为空（后端必填参数）'))
   }
-  
+
   // 核心修复：传递 model_id 参数，解决 422 错误
   return request.get('/models/active', {
     params: { model_id: modelId } // 补充后端要求的必填参数
@@ -253,11 +262,35 @@ export function requestWrapper(apiFunc, ...args) {
   return apiFunc(...args)
     .catch(error => {
       console.error('请求失败:', error)
-      // 可以在这里统一处理登录失效等全局错误
       if (error.message.includes('登录状态失效')) {
-        // 例如：跳转到登录页
         window.location.href = '/login'
       }
       throw error
     })
+}
+
+export function uploadMyAvatar(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/users/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  }).catch(error => {
+    console.error('上传头像失败:', error)
+    throw new Error(error.response?.data?.detail || '上传头像失败')
+  })
+}
+
+export function uploadUserAvatar(userId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post(`/users/${userId}/avatar`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  }).catch(error => {
+    console.error('上传用户头像失败:', error)
+    throw new Error(error.response?.data?.detail || '上传用户头像失败')
+  })
 }
